@@ -30,6 +30,11 @@ func TestFetchInlineComments(t *testing.T) {
 					Body:       commentBody{Storage: goconfluence.Storage{Value: "<p>обычный комментарий</p>"}},
 					History:    commentHistory{CreatedBy: commentAuthor{DisplayName: "Пётр Петров"}},
 				},
+				{
+					Extensions: commentExtensions{InlineProperties: &inlineProperties{OriginalSelection: ""}},
+					Body:       commentBody{Storage: goconfluence.Storage{Value: "<p>комментарий с пустым selection</p>"}},
+					History:    commentHistory{CreatedBy: commentAuthor{DisplayName: "Сидор Сидоров"}},
+				},
 			},
 		}
 

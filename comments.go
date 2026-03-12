@@ -95,7 +95,7 @@ func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]comm
 
 	var comments []commentData
 	for _, r := range resp.Results {
-		if r.Extensions.InlineProperties == nil {
+		if r.Extensions.InlineProperties == nil || r.Extensions.InlineProperties.OriginalSelection == "" {
 			continue
 		}
 		comments = append(comments, commentData{
