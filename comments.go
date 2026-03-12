@@ -79,7 +79,7 @@ type createCommentBody struct {
 
 // fetchInlineComments получает inline-комментарии страницы
 func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]commentData, error) {
-	url := baseURL + "/content/" + pageID + "/child/comment?expand=body.storage,extensions.inlineProperties,history"
+	url := baseURL + "/content/" + pageID + "/child/comment?location=inline&expand=body.storage,extensions.inlineProperties,history"
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
