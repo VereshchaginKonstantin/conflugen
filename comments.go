@@ -32,12 +32,9 @@ func commentHash(body string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(body)))
 }
 
-// savedMarker создаёт скрытый span с хешем
+// savedMarker создаёт текстовый маркер с хешем
 func savedMarker(hash string) string {
-	return fmt.Sprintf(
-		`<span style="font-size:0px;color:transparent">conflugen-saved:%s</span>`,
-		hash,
-	)
+	return fmt.Sprintf("conflugen-saved:%s", hash)
 }
 
 // extractSavedHashes извлекает все хеши conflugen-saved из тела комментария
@@ -229,8 +226,8 @@ func preserveComments(requester rawRequester, baseURL, pageID, spaceKey string) 
 			if c.OriginalSelection != "" {
 				quote = fmt.Sprintf("<blockquote><p>%s</p></blockquote>", c.OriginalSelection)
 			}
-			text := fmt.Sprintf("%s<p><strong>[Комментарий от %s, перенесён conflugen]:</strong></p>%s%s",
-				marker, c.Author, quote, c.Body)
+			text := fmt.Sprintf("<p><strong>[Комментарий от %s, перенесён conflugen]:</strong></p>%s%s<p><sub>%s</sub></p>",
+				c.Author, quote, c.Body, marker)
 			if err := createPageComment(requester, baseURL, pageID, spaceKey, text); err != nil {
 				return fmt.Errorf("восстановление комментария: %w", err)
 			}
