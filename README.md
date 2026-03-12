@@ -84,9 +84,42 @@ conflugen -f docs/architecture.md --debug
 
 ### Authentication
 
-Token can be provided via:
-- `--token` flag
-- `CONFLUENCE_TOKEN` environment variable
+conflugen uses Confluence [Personal Access Token](https://confluence.atlassian.com/enterprise/using-personal-access-tokens-1026032365.html) (PAT) for authentication.
+
+**How to get a token:**
+
+1. Open Confluence → click your avatar (top right) → **Settings**
+2. In the left menu select **Personal Access Tokens**
+3. Click **Create token**
+4. Enter a name (e.g. `conflugen`), set expiration, click **Create**
+5. Copy the token (it is shown only once)
+
+**How to provide the token to conflugen:**
+
+Option 1 — environment variable (recommended):
+
+```bash
+export CONFLUENCE_TOKEN="your-token-here"
+conflugen -f docs/architecture.md
+```
+
+Option 2 — `.env` file (add to `.gitignore`!):
+
+```bash
+# .env
+CONFLUENCE_TOKEN=your-token-here
+```
+
+```bash
+# use with env loading
+source .env && conflugen -f docs/architecture.md
+```
+
+Option 3 — CLI flag (not recommended for shared environments):
+
+```bash
+conflugen -f docs/architecture.md --token "your-token-here"
+```
 
 In `--dry-run` mode, no token is required.
 
