@@ -77,10 +77,8 @@ type createCommentBody struct {
 	Storage goconfluence.Storage `json:"storage"`
 }
 
-// fetchInlineComments получает inline-комментарии страницы
-func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]commentData, error) {
-	url := baseURL + "/content/" + pageID + "/child/comment?location=inline&status=current&expand=body.storage,extensions.inlineProperties,history"
-
+// fetchComments получает комментарии страницы по URL
+func fetchComments(requester rawRequester, url string) ([]commentResult, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("создание запроса комментариев: %w", err)
@@ -96,9 +94,39 @@ func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]comm
 		return nil, fmt.Errorf("парсинг комментариев: %w", err)
 	}
 
-	var comments []commentData
-	for _, r := range resp.Results {
+	return resp.Results, nil
+}
+
+// fetchNewInlineComments получает inline-комментарии, которые ещё не были сохранены conflugen
+func fetchNewInlineComments(requester rawRequester, baseURL, pageID string) ([]commentData, error) {
+	// Получаем все комментарии и собираем тела уже сохранённых
+	allURL := baseURL + "/content/" + pageID + "/child/comment?expand=body.storage"
+	allResults, err := fetchComments(requester, allURL)
+	if err != nil {
+		return nil, fmt.Errorf("чтение всех комментариев: %w", err)
+	}
+
+	savedBodies := make(map[string]bool)
+	for _, r := range allResults {
 		if strings.Contains(r.Body.Storage.Value, "conflugen-saved") {
+			savedBodies[r.Body.Storage.Value] = true
+		}
+	}
+
+	// Получаем inline-комментарии
+	inlineURL := baseURL + "/content/" + pageID + "/child/comment?location=inline&expand=body.storage,extensions.inlineProperties,history"
+	inlineResults, err := fetchComments(requester, inlineURL)
+	if err != nil {
+		return nil, fmt.Errorf("чтение inline-комментариев: %w", err)
+	}
+
+	var comments []commentData
+	for _, r := range inlineResults {
+		if strings.Contains(r.Body.Storage.Value, "conflugen-saved") {
+			continue
+		}
+		// Пропускаем если тело этого комментария уже есть в сохранённых
+		if alreadySaved(r.Body.Storage.Value, savedBodies) {
 			continue
 		}
 		comments = append(comments, commentData{
@@ -109,6 +137,16 @@ func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]comm
 	}
 
 	return comments, nil
+}
+
+// alreadySaved проверяет, содержит ли какой-нибудь сохранённый комментарий тело inline-комментария
+func alreadySaved(inlineBody string, savedBodies map[string]bool) bool {
+	for saved := range savedBodies {
+		if strings.Contains(saved, inlineBody) {
+			return true
+		}
+	}
+	return false
 }
 
 func inlineSelection(props *inlineProperties) string {
@@ -155,7 +193,7 @@ func createPageComment(requester rawRequester, baseURL, pageID, spaceKey, body s
 
 // preserveComments читает inline-комментарии и возвращает функцию для их восстановления как обычных комментариев
 func preserveComments(requester rawRequester, baseURL, pageID, spaceKey string) (restoreFunc func() error, err error) {
-	comments, err := fetchInlineComments(requester, baseURL, pageID)
+	comments, err := fetchNewInlineComments(requester, baseURL, pageID)
 	if err != nil {
 		return nil, fmt.Errorf("чтение inline-комментариев: %w", err)
 	}

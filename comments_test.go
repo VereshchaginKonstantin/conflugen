@@ -5,61 +5,104 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	goconfluence "github.com/virtomize/confluence-go-api"
 )
 
-func TestFetchInlineComments(t *testing.T) {
+func TestFetchNewInlineComments(t *testing.T) {
 	t.Parallel()
 
-	t.Run("возвращает все комментарии кроме помеченных маркером", func(t *testing.T) {
+	t.Run("возвращает новые inline-комментарии", func(t *testing.T) {
 		t.Parallel()
 
-		response := commentsResponse{
-			Results: []commentResult{
-				{
-					Extensions: commentExtensions{
-						InlineProperties: &inlineProperties{OriginalSelection: "выделенный текст"},
-					},
-					Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>inline комментарий</p>"}},
-					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Иван Иванов"}},
-				},
-				{
-					Extensions: commentExtensions{InlineProperties: nil},
-					Body:       commentBody{Storage: goconfluence.Storage{Value: "<p>обычный комментарий</p>"}},
-					History:    commentHistory{CreatedBy: commentAuthor{DisplayName: "Пётр Петров"}},
-				},
-				{
-					Extensions: commentExtensions{},
-					Body: commentBody{Storage: goconfluence.Storage{
-						Value: conflugenSavedMarker + "<p><strong>[Комментарий от Кто-то, перенесён conflugen]:</strong></p><p>старый</p>",
-					}},
-					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Кто-то"}},
-				},
-			},
-		}
-
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			assertEqual(t, "/rest/api/content/12345/child/comment", r.URL.Path)
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+
+			if strings.Contains(r.URL.RawQuery, "location=inline") {
+				// inline-комментарии
+				json.NewEncoder(w).Encode(commentsResponse{
+					Results: []commentResult{
+						{
+							Extensions: commentExtensions{
+								InlineProperties: &inlineProperties{OriginalSelection: "выделенный текст"},
+							},
+							Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>новый inline</p>"}},
+							History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Иван"}},
+						},
+						{
+							Extensions: commentExtensions{
+								InlineProperties: &inlineProperties{OriginalSelection: "старый текст"},
+							},
+							Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>уже сохранённый</p>"}},
+							History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Пётр"}},
+						},
+					},
+				})
+			} else {
+				// все комментарии
+				json.NewEncoder(w).Encode(commentsResponse{
+					Results: []commentResult{
+						{
+							Body: commentBody{Storage: goconfluence.Storage{
+								Value: conflugenSavedMarker + "<p><strong>[Комментарий от Пётр, перенесён conflugen]:</strong></p><p>уже сохранённый</p>",
+							}},
+						},
+					},
+				})
+			}
 		}))
 		defer srv.Close()
 
 		api, err := goconfluence.NewAPIWithClient(srv.URL+"/rest/api", srv.Client())
 		assertNoError(t, err)
 
-		comments, err := fetchInlineComments(api, srv.URL+"/rest/api", "12345")
+		comments, err := fetchNewInlineComments(api, srv.URL+"/rest/api", "12345")
 		assertNoError(t, err)
-		assertEqual(t, 2, len(comments))
-		assertEqual(t, "Иван Иванов", comments[0].Author)
-		assertEqual(t, "выделенный текст", comments[0].OriginalSelection)
-		assertEqual(t, "Пётр Петров", comments[1].Author)
-		assertEqual(t, "", comments[1].OriginalSelection)
+		assertEqual(t, 1, len(comments))
+		assertEqual(t, "Иван", comments[0].Author)
+		assertEqual(t, "<p>новый inline</p>", comments[0].Body)
 	})
 
-	t.Run("пустой список", func(t *testing.T) {
+	t.Run("пропускает все если все уже сохранены", func(t *testing.T) {
+		t.Parallel()
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			if strings.Contains(r.URL.RawQuery, "location=inline") {
+				json.NewEncoder(w).Encode(commentsResponse{
+					Results: []commentResult{
+						{
+							Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>старый inline</p>"}},
+							History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Иван"}},
+						},
+					},
+				})
+			} else {
+				json.NewEncoder(w).Encode(commentsResponse{
+					Results: []commentResult{
+						{
+							Body: commentBody{Storage: goconfluence.Storage{
+								Value: conflugenSavedMarker + "<p><strong>[Комментарий от Иван, перенесён conflugen]:</strong></p><p>старый inline</p>",
+							}},
+						},
+					},
+				})
+			}
+		}))
+		defer srv.Close()
+
+		api, err := goconfluence.NewAPIWithClient(srv.URL+"/rest/api", srv.Client())
+		assertNoError(t, err)
+
+		comments, err := fetchNewInlineComments(api, srv.URL+"/rest/api", "12345")
+		assertNoError(t, err)
+		assertEqual(t, 0, len(comments))
+	})
+
+	t.Run("пустой список без комментариев", func(t *testing.T) {
 		t.Parallel()
 
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,35 +114,7 @@ func TestFetchInlineComments(t *testing.T) {
 		api, err := goconfluence.NewAPIWithClient(srv.URL+"/rest/api", srv.Client())
 		assertNoError(t, err)
 
-		comments, err := fetchInlineComments(api, srv.URL+"/rest/api", "12345")
-		assertNoError(t, err)
-		assertEqual(t, 0, len(comments))
-	})
-
-	t.Run("только маркированные — пустой результат", func(t *testing.T) {
-		t.Parallel()
-
-		response := commentsResponse{
-			Results: []commentResult{
-				{
-					Body: commentBody{Storage: goconfluence.Storage{
-						Value: conflugenSavedMarker + "<p>ранее сохранённый</p>",
-					}},
-					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Bot"}},
-				},
-			},
-		}
-
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
-		}))
-		defer srv.Close()
-
-		api, err := goconfluence.NewAPIWithClient(srv.URL+"/rest/api", srv.Client())
-		assertNoError(t, err)
-
-		comments, err := fetchInlineComments(api, srv.URL+"/rest/api", "12345")
+		comments, err := fetchNewInlineComments(api, srv.URL+"/rest/api", "12345")
 		assertNoError(t, err)
 		assertEqual(t, 0, len(comments))
 	})
@@ -156,18 +171,21 @@ func TestPreserveComments(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 
 			if r.Method == http.MethodGet {
-				response := commentsResponse{
-					Results: []commentResult{
-						{
-							Extensions: commentExtensions{
-								InlineProperties: &inlineProperties{OriginalSelection: "выделенный фрагмент"},
+				if strings.Contains(r.URL.RawQuery, "location=inline") {
+					json.NewEncoder(w).Encode(commentsResponse{
+						Results: []commentResult{
+							{
+								Extensions: commentExtensions{
+									InlineProperties: &inlineProperties{OriginalSelection: "выделенный фрагмент"},
+								},
+								Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>комментарий 1</p>"}},
+								History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Автор"}},
 							},
-							Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>комментарий 1</p>"}},
-							History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Автор"}},
 						},
-					},
+					})
+				} else {
+					json.NewEncoder(w).Encode(commentsResponse{Results: []commentResult{}})
 				}
-				json.NewEncoder(w).Encode(response)
 				return
 			}
 
@@ -199,7 +217,7 @@ func TestPreserveComments(t *testing.T) {
 		assertContains(t, postedBody, "Автор")
 	})
 
-	t.Run("restoreFunc ничего не делает без комментариев", func(t *testing.T) {
+	t.Run("restoreFunc ничего не делает без новых комментариев", func(t *testing.T) {
 		t.Parallel()
 
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
