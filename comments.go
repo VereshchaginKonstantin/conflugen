@@ -11,7 +11,7 @@ import (
 	goconfluence "github.com/virtomize/confluence-go-api"
 )
 
-const conflugenSavedMarker = "<!-- conflugen-saved -->"
+const conflugenSavedMarker = `<ac:structured-macro ac:name="noformat"><ac:plain-text-body><![CDATA[conflugen-saved]]></ac:plain-text-body></ac:structured-macro>`
 
 // rawRequester выполняет HTTP-запросы с авторизацией Confluence
 type rawRequester interface {

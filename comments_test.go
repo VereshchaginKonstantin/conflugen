@@ -33,7 +33,7 @@ func TestFetchInlineComments(t *testing.T) {
 				{
 					Extensions: commentExtensions{},
 					Body: commentBody{Storage: goconfluence.Storage{
-						Value: "<!-- conflugen-saved --><p><strong>[Комментарий от Кто-то, перенесён conflugen]:</strong></p><p>старый</p>",
+						Value: conflugenSavedMarker + "<p><strong>[Комментарий от Кто-то, перенесён conflugen]:</strong></p><p>старый</p>",
 					}},
 					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Кто-то"}},
 				},
@@ -83,7 +83,7 @@ func TestFetchInlineComments(t *testing.T) {
 			Results: []commentResult{
 				{
 					Body: commentBody{Storage: goconfluence.Storage{
-						Value: "<!-- conflugen-saved --><p>ранее сохранённый</p>",
+						Value: conflugenSavedMarker + "<p>ранее сохранённый</p>",
 					}},
 					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Bot"}},
 				},
@@ -193,7 +193,7 @@ func TestPreserveComments(t *testing.T) {
 		err = restoreFunc()
 		assertNoError(t, err)
 		assertEqual(t, 1, callCount)
-		assertContains(t, postedBody, "<!-- conflugen-saved -->")
+		assertContains(t, postedBody, conflugenSavedMarker)
 		assertContains(t, postedBody, "<blockquote><p>выделенный фрагмент</p></blockquote>")
 		assertContains(t, postedBody, "<p>комментарий 1</p>")
 		assertContains(t, postedBody, "Автор")
