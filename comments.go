@@ -32,10 +32,10 @@ func commentHash(body string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(body)))
 }
 
-// savedMarker создаёт Confluence noformat макрос с хешем
+// savedMarker создаёт скрытый span с хешем
 func savedMarker(hash string) string {
 	return fmt.Sprintf(
-		`<ac:structured-macro ac:name="noformat"><ac:plain-text-body><![CDATA[conflugen-saved:%s]]></ac:plain-text-body></ac:structured-macro>`,
+		`<span style="font-size:0px;color:transparent">conflugen-saved:%s</span>`,
 		hash,
 	)
 }
@@ -137,6 +137,8 @@ func fetchNewInlineComments(requester rawRequester, baseURL, pageID string) ([]c
 			savedHashes[h] = true
 		}
 	}
+
+	log.Printf("найдено %d сохранённых хешей комментариев", len(savedHashes))
 
 	// Получаем inline-комментарии
 	inlineURL := baseURL + "/content/" + pageID + "/child/comment?location=inline&expand=body.storage,extensions.inlineProperties,history"
