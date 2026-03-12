@@ -1,4 +1,4 @@
-package extgoldmark
+package extensions
 
 import (
 	"fmt"

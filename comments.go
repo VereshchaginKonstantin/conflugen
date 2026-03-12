@@ -15,6 +15,15 @@ import (
 
 var savedHashRegex = regexp.MustCompile(`conflugen-saved:([a-f0-9]{64})`)
 
+// conflugenPrefixRegex удаляет приписку [Комментарий от ..., перенесён conflugen]:
+var conflugenPrefixRegex = regexp.MustCompile(`<p><strong>\[Комментарий от [^]]+, перенесён conflugen\]:?</strong></p>`)
+
+// conflugenBlockquoteRegex удаляет blockquote с цитатой
+var conflugenBlockquoteRegex = regexp.MustCompile(`<blockquote><p>[^<]*</p></blockquote>`)
+
+// conflugenMarkerRegex удаляет <sub> маркер с хешем
+var conflugenMarkerRegex = regexp.MustCompile(`<p><sub>conflugen-saved:[a-f0-9]{64}</sub></p>`)
+
 // rawRequester выполняет HTTP-запросы с авторизацией Confluence
 type rawRequester interface {
 	Request(req *http.Request) ([]byte, error)
@@ -45,6 +54,14 @@ func extractSavedHashes(body string) []string {
 		hashes = append(hashes, m[1])
 	}
 	return hashes
+}
+
+// extractCleanBody удаляет из тела комментария все добавки conflugen и возвращает оригинальное тело
+func extractCleanBody(body string) string {
+	clean := conflugenPrefixRegex.ReplaceAllString(body, "")
+	clean = conflugenBlockquoteRegex.ReplaceAllString(clean, "")
+	clean = conflugenMarkerRegex.ReplaceAllString(clean, "")
+	return clean
 }
 
 // commentsResponse — структура ответа Confluence API для комментариев
@@ -130,8 +147,17 @@ func fetchNewInlineComments(requester rawRequester, baseURL, pageID string) ([]c
 
 	savedHashes := make(map[string]bool)
 	for _, r := range allResults {
-		for _, h := range extractSavedHashes(r.Body.Storage.Value) {
+		val := r.Body.Storage.Value
+		// Извлекаем хеш из маркера, если есть
+		for _, h := range extractSavedHashes(val) {
 			savedHashes[h] = true
+		}
+		// Если комментарий содержит признаки conflugen — вычисляем хеш от чистого тела
+		if strings.Contains(val, "перенесён conflugen") {
+			clean := extractCleanBody(val)
+			if clean != "" {
+				savedHashes[commentHash(clean)] = true
+			}
 		}
 	}
 

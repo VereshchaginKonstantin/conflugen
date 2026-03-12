@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -33,6 +34,31 @@ func TestExtractSavedHashes(t *testing.T) {
 	hashes := extractSavedHashes(body)
 	assertEqual(t, 1, len(hashes))
 	assertEqual(t, hash, hashes[0])
+}
+
+func TestExtractCleanBody(t *testing.T) {
+	t.Parallel()
+
+	t.Run("удаляет все добавки conflugen", func(t *testing.T) {
+		t.Parallel()
+
+		original := "<p>оригинальный текст</p>"
+		hash := commentHash(original)
+		full := fmt.Sprintf(
+			`<p><strong>[Комментарий от Иван, перенесён conflugen]:</strong></p><blockquote><p>цитата</p></blockquote>%s<p><sub>conflugen-saved:%s</sub></p>`,
+			original, hash,
+		)
+		clean := extractCleanBody(full)
+		assertEqual(t, original, clean)
+	})
+
+	t.Run("без добавок возвращает как есть", func(t *testing.T) {
+		t.Parallel()
+
+		body := "<p>обычный комментарий</p>"
+		clean := extractCleanBody(body)
+		assertEqual(t, body, clean)
+	})
 }
 
 func TestFetchNewInlineComments(t *testing.T) {
@@ -115,6 +141,48 @@ func TestFetchNewInlineComments(t *testing.T) {
 							Body: commentBody{Storage: goconfluence.Storage{
 								Value: savedMarker(hash) + "<p>wrapped</p>" + body,
 							}},
+						},
+					},
+				})
+			}
+		}))
+		defer srv.Close()
+
+		api, err := goconfluence.NewAPIWithClient(srv.URL+"/rest/api", srv.Client())
+		assertNoError(t, err)
+
+		comments, err := fetchNewInlineComments(api, srv.URL+"/rest/api", "12345")
+		assertNoError(t, err)
+		assertEqual(t, 0, len(comments))
+	})
+
+	t.Run("пропускает по хешу чистого тела когда маркер отсутствует", func(t *testing.T) {
+		t.Parallel()
+
+		inlineBody := "<p>inline комментарий</p>"
+		// Сохранённый комментарий без маркера (Confluence убрал sub), но с текстом conflugen
+		savedComment := fmt.Sprintf(
+			`<p><strong>[Комментарий от Иван, перенесён conflugen]:</strong></p><blockquote><p>цитата</p></blockquote>%s`,
+			inlineBody,
+		)
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+
+			if strings.Contains(r.URL.RawQuery, "location=inline") {
+				json.NewEncoder(w).Encode(commentsResponse{
+					Results: []commentResult{
+						{
+							Body:    commentBody{Storage: goconfluence.Storage{Value: inlineBody}},
+							History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Иван"}},
+						},
+					},
+				})
+			} else {
+				json.NewEncoder(w).Encode(commentsResponse{
+					Results: []commentResult{
+						{
+							Body: commentBody{Storage: goconfluence.Storage{Value: savedComment}},
 						},
 					},
 				})

@@ -1,4 +1,4 @@
-package extgoldmark_test
+package extensions_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yuin/goldmark"
-	"github.com/VereshchaginKonstantin/conflugen/extgoldmark"
+	"github.com/VereshchaginKonstantin/conflugen/extensions"
 )
 
 func TestPlantUMLExtension_Integration(t *testing.T) {
@@ -19,7 +19,7 @@ func TestPlantUMLExtension_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.PlantUMLExtension{},
+				&extensions.PlantUMLExtension{},
 			),
 		)
 		input := []byte("```plantuml\n@startuml\nAlice -> Bob: Hello\n@enduml\n```")
@@ -42,7 +42,7 @@ func TestPlantUMLExtension_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.PlantUMLExtension{},
+				&extensions.PlantUMLExtension{},
 			),
 		)
 		input := []byte("```go\nfmt.Println(\"hello\")\n```")
@@ -63,8 +63,8 @@ func TestPlantUMLExtension_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.PlantUMLExtension{},
-				&extgoldmark.ConfluenceCodeBlock{},
+				&extensions.PlantUMLExtension{},
+				&extensions.ConfluenceCodeBlock{},
 			),
 		)
 		input := []byte("```go\nfmt.Println(\"hello\")\n```\n\n```plantuml\n@startuml\nA -> B\n@enduml\n```")
@@ -86,7 +86,7 @@ func TestPlantUMLExtension_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.PlantUMLExtension{},
+				&extensions.PlantUMLExtension{},
 			),
 		)
 		input := []byte("```plantuml\n@startuml\nnote: data ]]> end\n@enduml\n```")
@@ -107,7 +107,7 @@ func TestPlantUMLExtension_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.PlantUMLExtension{},
+				&extensions.PlantUMLExtension{},
 			),
 		)
 		input := []byte("```plantuml\n@startuml\nA -> B\n@enduml\n```\n\n```plantuml\n@startuml\nC -> D\n@enduml\n```")
@@ -130,20 +130,20 @@ func TestPlantUMLNode(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		node := &extgoldmark.PlantUMLNode{}
+		node := &extensions.PlantUMLNode{}
 
 		// Act
 		kind := node.Kind()
 
 		// Assert
-		require.Equal(t, extgoldmark.KindPlantUML, kind)
+		require.Equal(t, extensions.KindPlantUML, kind)
 	})
 
 	t.Run("Dump не паникует", func(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		node := &extgoldmark.PlantUMLNode{}
+		node := &extensions.PlantUMLNode{}
 
 		// Act & Assert
 		require.NotPanics(t, func() {
@@ -156,7 +156,7 @@ func TestNewPlantUMLHTMLRenderer(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	renderer := extgoldmark.NewPlantUMLHTMLRenderer()
+	renderer := extensions.NewPlantUMLHTMLRenderer()
 
 	// Assert
 	require.NotNil(t, renderer)

@@ -1,4 +1,4 @@
-package extgoldmark //nolint:testpackage // uses unexported functions
+package extensions //nolint:testpackage // uses unexported functions
 
 import (
 	"testing"

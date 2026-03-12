@@ -1,4 +1,4 @@
-package extgoldmark_test
+package extensions_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yuin/goldmark"
-	"github.com/VereshchaginKonstantin/conflugen/extgoldmark"
+	"github.com/VereshchaginKonstantin/conflugen/extensions"
 )
 
 func TestSpoilerConverter_Convert(t *testing.T) {
@@ -17,7 +17,7 @@ func TestSpoilerConverter_Convert(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		converter := extgoldmark.NewSpoilerConverter()
+		converter := extensions.NewSpoilerConverter()
 		input := []byte(`<details>
 <summary>Подробности</summary>
 
@@ -45,7 +45,7 @@ func TestSpoilerExtension_Integration(t *testing.T) {
 		require.NotPanics(t, func() {
 			md := goldmark.New(
 				goldmark.WithExtensions(
-					&extgoldmark.SpoilerExtension{},
+					&extensions.SpoilerExtension{},
 				),
 			)
 			var buf bytes.Buffer
@@ -58,20 +58,20 @@ func TestSpoilerBlock_Kind(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	block := &extgoldmark.SpoilerBlock{Summary: "test"}
+	block := &extensions.SpoilerBlock{Summary: "test"}
 
 	// Act
 	kind := block.Kind()
 
 	// Assert
-	require.Equal(t, extgoldmark.KindSpoilerBlock, kind)
+	require.Equal(t, extensions.KindSpoilerBlock, kind)
 }
 
 func TestSpoilerBlock_Dump(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	block := &extgoldmark.SpoilerBlock{Summary: "test summary"}
+	block := &extensions.SpoilerBlock{Summary: "test summary"}
 
 	// Act & Assert
 	require.NotPanics(t, func() {
@@ -83,7 +83,7 @@ func TestNewSpoilerExtension(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	ext := extgoldmark.NewSpoilerExtension()
+	ext := extensions.NewSpoilerExtension()
 
 	// Assert
 	require.NotNil(t, ext)
@@ -93,7 +93,7 @@ func TestNewSpoilerASTTransformer(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	transformer := extgoldmark.NewSpoilerASTTransformer()
+	transformer := extensions.NewSpoilerASTTransformer()
 
 	// Assert
 	require.NotNil(t, transformer)
@@ -103,7 +103,7 @@ func TestNewSpoilerRenderer(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	renderer := extgoldmark.NewSpoilerRenderer()
+	renderer := extensions.NewSpoilerRenderer()
 
 	// Assert
 	require.NotNil(t, renderer)
@@ -118,7 +118,7 @@ func TestSpoilerRenderer_RenderSpoilerBlock(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.SpoilerExtension{},
+				&extensions.SpoilerExtension{},
 			),
 		)
 

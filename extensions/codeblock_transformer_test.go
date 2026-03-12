@@ -1,4 +1,4 @@
-package extgoldmark_test
+package extensions_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/yuin/goldmark"
-	"github.com/VereshchaginKonstantin/conflugen/extgoldmark"
+	"github.com/VereshchaginKonstantin/conflugen/extensions"
 )
 
 func TestConfluenceCodeBlock_Integration(t *testing.T) {
@@ -19,7 +19,7 @@ func TestConfluenceCodeBlock_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.ConfluenceCodeBlock{},
+				&extensions.ConfluenceCodeBlock{},
 			),
 		)
 		input := []byte("```go\nfmt.Println(\"hello\")\n```")
@@ -43,7 +43,7 @@ func TestConfluenceCodeBlock_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.ConfluenceCodeBlock{},
+				&extensions.ConfluenceCodeBlock{},
 			),
 		)
 		input := []byte("```\nsome code\n```")
@@ -65,7 +65,7 @@ func TestConfluenceCodeBlock_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.ConfluenceCodeBlock{},
+				&extensions.ConfluenceCodeBlock{},
 			),
 		)
 		input := []byte("```plantuml\n@startuml\nA -> B\n@enduml\n```")
@@ -89,7 +89,7 @@ func TestConfluenceCodeBlock_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.ConfluenceCodeBlock{},
+				&extensions.ConfluenceCodeBlock{},
 			),
 		)
 		input := []byte("```puml\n@startuml\nA -> B\n@enduml\n```")
@@ -112,7 +112,7 @@ func TestConfluenceCodeBlock_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.ConfluenceCodeBlock{},
+				&extensions.ConfluenceCodeBlock{},
 			),
 		)
 		input := []byte("```python\nprint('hello')\n```\n\n```sql\nSELECT 1\n```")
@@ -133,7 +133,7 @@ func TestConfluenceCodeBlock_Integration(t *testing.T) {
 		// Arrange
 		md := goldmark.New(
 			goldmark.WithExtensions(
-				&extgoldmark.ConfluenceCodeBlock{},
+				&extensions.ConfluenceCodeBlock{},
 			),
 		)
 		input := []byte("```c++\nint main() {}\n```")
@@ -152,9 +152,9 @@ func TestNew(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	ext := extgoldmark.New()
+	ext := extensions.New()
 
 	// Assert
 	require.NotNil(t, ext)
-	require.IsType(t, &extgoldmark.ConfluenceCodeBlock{}, ext)
+	require.IsType(t, &extensions.ConfluenceCodeBlock{}, ext)
 }

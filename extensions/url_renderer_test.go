@@ -1,4 +1,4 @@
-package extgoldmark_test
+package extensions_test
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
-	"github.com/VereshchaginKonstantin/conflugen/extgoldmark"
+	"github.com/VereshchaginKonstantin/conflugen/extensions"
 )
 
 func TestConfluenceLinkExtension_Integration(t *testing.T) {
@@ -19,7 +19,7 @@ func TestConfluenceLinkExtension_Integration(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		ext := extgoldmark.NewConfluenceLinkExtension("https://wiki.example.com", "OB", false)
+		ext := extensions.NewConfluenceLinkExtension("https://wiki.example.com", "OB", false)
 		md := goldmark.New(
 			goldmark.WithExtensions(ext),
 			goldmark.WithParserOptions(parser.WithAutoHeadingID()),
@@ -42,7 +42,7 @@ func TestConfluenceLinkExtension_Integration(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		ext := extgoldmark.NewConfluenceLinkExtension("", "", false)
+		ext := extensions.NewConfluenceLinkExtension("", "", false)
 		md := goldmark.New(goldmark.WithExtensions(ext))
 		input := []byte("[Contact](mailto:test@example.com)")
 
@@ -60,7 +60,7 @@ func TestConfluenceLinkExtension_Integration(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		ext := extgoldmark.NewConfluenceLinkExtension("", "", false)
+		ext := extensions.NewConfluenceLinkExtension("", "", false)
 		md := goldmark.New(goldmark.WithExtensions(ext))
 		input := []byte("[Section](#section-1)")
 
@@ -78,7 +78,7 @@ func TestConfluenceLinkExtension_Integration(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		ext := extgoldmark.NewConfluenceLinkExtension("https://confluence.example.com", "OB", true)
+		ext := extensions.NewConfluenceLinkExtension("https://confluence.example.com", "OB", true)
 		md := goldmark.New(goldmark.WithExtensions(ext))
 		input := []byte("[Page](https://confluence.example.com/pages/123)")
 
@@ -96,7 +96,7 @@ func TestConfluenceLinkExtension_Integration(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		ext := extgoldmark.NewConfluenceLinkExtension("https://confluence.example.com", "OB", false)
+		ext := extensions.NewConfluenceLinkExtension("https://confluence.example.com", "OB", false)
 		md := goldmark.New(goldmark.WithExtensions(ext))
 		input := []byte("[Page](https://confluence.example.com/pages/123)")
 
@@ -114,7 +114,7 @@ func TestConfluenceLinkExtension_Integration(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		ext := extgoldmark.NewConfluenceLinkExtension("", "", false)
+		ext := extensions.NewConfluenceLinkExtension("", "", false)
 		md := goldmark.New(goldmark.WithExtensions(ext))
 		input := []byte("[A](https://a.com) and [B](https://b.com)")
 
@@ -134,20 +134,20 @@ func TestConfluenceLinkNode_Kind(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	node := &extgoldmark.ConfluenceLinkNode{}
+	node := &extensions.ConfluenceLinkNode{}
 
 	// Act
 	kind := node.Kind()
 
 	// Assert
-	require.Equal(t, extgoldmark.KindConfluenceLink, kind)
+	require.Equal(t, extensions.KindConfluenceLink, kind)
 }
 
 func TestConfluenceLinkNode_Dump(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	node := &extgoldmark.ConfluenceLinkNode{}
+	node := &extensions.ConfluenceLinkNode{}
 
 	// Act & Assert
 	require.NotPanics(t, func() {
@@ -159,7 +159,7 @@ func TestNewConfluenceLinkRenderer(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	r := extgoldmark.NewConfluenceLinkRenderer("https://wiki.example.com", "OB", true)
+	r := extensions.NewConfluenceLinkRenderer("https://wiki.example.com", "OB", true)
 
 	// Assert
 	require.NotNil(t, r)
@@ -169,7 +169,7 @@ func TestNewConfluenceLinkExtension(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	ext := extgoldmark.NewConfluenceLinkExtension("https://wiki.example.com", "OB", false)
+	ext := extensions.NewConfluenceLinkExtension("https://wiki.example.com", "OB", false)
 
 	// Assert
 	require.NotNil(t, ext)
@@ -183,7 +183,7 @@ func TestAutoLinkExtension(t *testing.T) {
 
 		// Act & Assert
 		require.NotPanics(t, func() {
-			ext := extgoldmark.NewAutoLinkExtension()
+			ext := extensions.NewAutoLinkExtension()
 			md := goldmark.New(goldmark.WithExtensions(ext))
 			var buf bytes.Buffer
 			_ = md.Convert([]byte("Visit https://example.com today"), &buf)
@@ -198,7 +198,7 @@ func TestAutoLinkParser(t *testing.T) {
 		t.Parallel()
 
 		// Act
-		p := extgoldmark.NewAutoLinkParser()
+		p := extensions.NewAutoLinkParser()
 
 		// Assert
 		require.NotNil(t, p)
@@ -208,7 +208,7 @@ func TestAutoLinkParser(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		p := extgoldmark.NewAutoLinkParser()
+		p := extensions.NewAutoLinkParser()
 
 		// Act
 		triggers := p.Trigger()
@@ -226,7 +226,7 @@ func TestConfluenceLinkRenderer_RenderTypes(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		ext := extgoldmark.NewConfluenceLinkExtension("https://confluence.example.com", "OB", false)
+		ext := extensions.NewConfluenceLinkExtension("https://confluence.example.com", "OB", false)
 		md := goldmark.New(goldmark.WithExtensions(ext))
 		input := []byte("[Space](https://confluence.example.com/spaces/OB)")
 
@@ -244,7 +244,7 @@ func TestConfluenceLinkRenderer_RenderTypes(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		ext := extgoldmark.NewConfluenceLinkExtension("https://confluence.example.com", "OB", false)
+		ext := extensions.NewConfluenceLinkExtension("https://confluence.example.com", "OB", false)
 		md := goldmark.New(goldmark.WithExtensions(ext))
 		input := []byte("[File](https://confluence.example.com/attachments/file.pdf)")
 
@@ -262,7 +262,7 @@ func TestConfluenceLinkRenderer_RenderTypes(t *testing.T) {
 		t.Parallel()
 
 		// Arrange
-		ext := extgoldmark.NewConfluenceLinkExtension("", "", false)
+		ext := extensions.NewConfluenceLinkExtension("", "", false)
 		md := goldmark.New(goldmark.WithExtensions(ext))
 		input := []byte(`[Link](https://example.com "Title text")`)
 

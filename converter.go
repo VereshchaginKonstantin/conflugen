@@ -10,7 +10,7 @@ import (
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
 
-	"github.com/VereshchaginKonstantin/conflugen/extgoldmark"
+	"github.com/VereshchaginKonstantin/conflugen/extensions"
 )
 
 // newMarkdownConverter создаёт конвертер Markdown → Confluence HTML
@@ -18,9 +18,9 @@ func newMarkdownConverter() goldmark.Markdown {
 	return goldmark.New(
 		goldmark.WithExtensions(
 			extension.GFM,
-			&extgoldmark.PlantUMLExtension{},
-			&extgoldmark.ConfluenceCodeBlock{},
-			&extgoldmark.SpoilerExtension{},
+			&extensions.PlantUMLExtension{},
+			&extensions.ConfluenceCodeBlock{},
+			&extensions.SpoilerExtension{},
 		),
 		goldmark.WithParserOptions(
 			parser.WithAutoHeadingID(),
@@ -51,8 +51,6 @@ func annotateHTML(htmlContent, hash string) string {
 		"<p>\n  <br/>\n</p>\n" +
 		"<p>Данная страница сгенерирована автоматически " +
 		"с помощью conflugen</p>\n" +
-		`<ac:structured-macro ac:name="noformat">` + "\n" +
-		"  <ac:plain-text-body><![CDATA[conflugen-hash:" +
-		hash + "]]></ac:plain-text-body>\n" +
-		"</ac:structured-macro>"
+		`<p style="font-size:0;line-height:0;margin:0;padding:0;color:transparent">` +
+		"conflugen-hash:" + hash + "</p>"
 }
