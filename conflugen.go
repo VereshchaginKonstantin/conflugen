@@ -24,6 +24,7 @@ func Run(cfg Config) error {
 	md := newMarkdownConverter()
 
 	var client confluenceAPI
+	var rawAPI rawRequester
 	if !cfg.DryRun {
 		c, err := goconfluence.NewAPI(cfg.ConfluenceURL, "", cfg.Token)
 		if err != nil {
@@ -31,6 +32,7 @@ func Run(cfg Config) error {
 		}
 		goconfluence.SetDebug(cfg.DebugMode)
 		client = c
+		rawAPI = c
 	}
 
 	for _, filePath := range cfg.Files {
@@ -69,6 +71,8 @@ func Run(cfg Config) error {
 
 		if err := publishPage(
 			client,
+			rawAPI,
+			cfg.ConfluenceURL,
 			directive.ParentID,
 			directive.SpaceKey,
 			pageTitle,

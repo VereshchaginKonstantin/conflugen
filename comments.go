@@ -1,0 +1,173 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+
+	goconfluence "github.com/virtomize/confluence-go-api"
+)
+
+// rawRequester выполняет HTTP-запросы с авторизацией Confluence
+type rawRequester interface {
+	Request(req *http.Request) ([]byte, error)
+}
+
+// commentData — данные inline-комментария со страницы
+type commentData struct {
+	Author            string
+	Body              string
+	OriginalSelection string
+}
+
+// commentsResponse — структура ответа Confluence API для комментариев
+type commentsResponse struct {
+	Results []commentResult `json:"results"`
+}
+
+type commentResult struct {
+	Extensions commentExtensions `json:"extensions"`
+	Body       commentBody       `json:"body"`
+	History    commentHistory    `json:"history"`
+}
+
+type commentExtensions struct {
+	InlineProperties *inlineProperties `json:"inlineProperties"`
+}
+
+type inlineProperties struct {
+	OriginalSelection string `json:"originalSelection"`
+}
+
+type commentBody struct {
+	Storage goconfluence.Storage `json:"storage"`
+}
+
+type commentHistory struct {
+	CreatedBy commentAuthor `json:"createdBy"`
+}
+
+type commentAuthor struct {
+	DisplayName string `json:"displayName"`
+}
+
+// createCommentRequest — тело POST-запроса для создания комментария
+type createCommentRequest struct {
+	Type      string                `json:"type"`
+	Container createCommentContainer `json:"container"`
+	Space     createCommentSpace    `json:"space"`
+	Body      createCommentBody     `json:"body"`
+}
+
+type createCommentContainer struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+}
+
+type createCommentSpace struct {
+	Key string `json:"key"`
+}
+
+type createCommentBody struct {
+	Storage goconfluence.Storage `json:"storage"`
+}
+
+// fetchInlineComments получает inline-комментарии страницы
+func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]commentData, error) {
+	url := baseURL + "/content/" + pageID + "/child/comment?expand=body.storage,extensions.inlineProperties,history"
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("создание запроса комментариев: %w", err)
+	}
+
+	body, err := requester.Request(req)
+	if err != nil {
+		return nil, fmt.Errorf("запрос комментариев: %w", err)
+	}
+
+	var resp commentsResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("парсинг комментариев: %w", err)
+	}
+
+	var comments []commentData
+	for _, r := range resp.Results {
+		if r.Extensions.InlineProperties == nil {
+			continue
+		}
+		comments = append(comments, commentData{
+			Author:            r.History.CreatedBy.DisplayName,
+			Body:              r.Body.Storage.Value,
+			OriginalSelection: r.Extensions.InlineProperties.OriginalSelection,
+		})
+	}
+
+	return comments, nil
+}
+
+// createPageComment создаёт обычный комментарий к странице
+func createPageComment(requester rawRequester, baseURL, pageID, spaceKey, body string) error {
+	payload := createCommentRequest{
+		Type:      "comment",
+		Container: createCommentContainer{ID: pageID, Type: "page"},
+		Space:     createCommentSpace{Key: spaceKey},
+		Body: createCommentBody{
+			Storage: goconfluence.Storage{
+				Value:          body,
+				Representation: "storage",
+			},
+		},
+	}
+
+	jsonBody, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("сериализация комментария: %w", err)
+	}
+
+	url := baseURL + "/content/"
+
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(jsonBody))
+	if err != nil {
+		return fmt.Errorf("создание запроса создания комментария: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	_, err = requester.Request(req)
+	if err != nil {
+		return fmt.Errorf("создание комментария: %w", err)
+	}
+
+	return nil
+}
+
+// preserveComments читает inline-комментарии и возвращает функцию для их восстановления как обычных комментариев
+func preserveComments(requester rawRequester, baseURL, pageID, spaceKey string) (restoreFunc func() error, err error) {
+	comments, err := fetchInlineComments(requester, baseURL, pageID)
+	if err != nil {
+		return nil, fmt.Errorf("чтение inline-комментариев: %w", err)
+	}
+
+	if len(comments) == 0 {
+		return func() error { return nil }, nil
+	}
+
+	log.Printf("найдено %d inline-комментариев для сохранения", len(comments))
+
+	return func() error {
+		for _, c := range comments {
+			quote := ""
+			if c.OriginalSelection != "" {
+				quote = fmt.Sprintf("<blockquote><p>%s</p></blockquote>", c.OriginalSelection)
+			}
+			text := fmt.Sprintf("<p><strong>[Комментарий от %s, перенесён conflugen]:</strong></p>%s%s", c.Author, quote, c.Body)
+			if err := createPageComment(requester, baseURL, pageID, spaceKey, text); err != nil {
+				return fmt.Errorf("восстановление комментария: %w", err)
+			}
+		}
+		log.Printf("восстановлено %d комментариев", len(comments))
+		return nil
+	}, nil
+}

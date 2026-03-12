@@ -30,6 +30,8 @@ func extractStoredHash(html string) string {
 // publishPage создаёт или обновляет страницу в Confluence
 func publishPage(
 	client confluenceAPI,
+	rawAPI rawRequester,
+	baseURL string,
 	parentID, spaceKey, title, htmlContent, contentHash string,
 	dryRun bool,
 ) error {
@@ -38,7 +40,7 @@ func publishPage(
 		return createPage(client, parentID, spaceKey, title, htmlContent, contentHash, dryRun)
 	}
 
-	return updatePage(client, spaceKey, page.ID, title, htmlContent, contentHash, dryRun)
+	return updatePage(client, rawAPI, baseURL, spaceKey, page.ID, title, htmlContent, contentHash, dryRun)
 }
 
 func findChildPage(client confluenceAPI, parentID, title string) (*goconfluence.Results, error) {
@@ -101,6 +103,8 @@ func createPage(
 
 func updatePage(
 	client confluenceAPI,
+	rawAPI rawRequester,
+	baseURL string,
 	spaceKey, pageID, title, htmlContent, contentHash string,
 	dryRun bool,
 ) error {
@@ -120,6 +124,14 @@ func updatePage(
 	if dryRun {
 		log.Printf("[DRY RUN] обновление: %s (ID: %s)", title, pageID)
 		return nil
+	}
+
+	var restoreFunc func() error
+	if rawAPI != nil {
+		restoreFunc, err = preserveComments(rawAPI, baseURL, pageID, spaceKey)
+		if err != nil {
+			log.Printf("предупреждение: не удалось прочитать inline-комментарии: %v", err)
+		}
 	}
 
 	version := 2
@@ -147,5 +159,12 @@ func updatePage(
 	}
 
 	log.Printf("обновлена: %s (ID: %s)", title, pageID)
+
+	if restoreFunc != nil {
+		if err := restoreFunc(); err != nil {
+			log.Printf("предупреждение: не удалось восстановить комментарии: %v", err)
+		}
+	}
+
 	return nil
 }

@@ -277,6 +277,21 @@ make generate
 6. Creates or updates the Confluence page (skips if hash matches)
 7. Appends a footer with "auto-generated" note and hash for change detection
 
+### Inline Comment Preservation
+
+When updating an existing page, conflugen preserves inline comments (text highlight + comment) that were added in the Confluence UI. Since the page content is fully replaced, inline comments lose their text anchors. conflugen handles this by:
+
+1. Reading all inline comments from the page before the update
+2. Updating the page content
+3. Re-creating saved comments as regular page comments with the original quoted text
+
+Each restored comment includes the author name, the original highlighted text (as a blockquote), and the comment body:
+
+> **[Комментарий от Author Name, перенесён conflugen]:**
+> > highlighted text fragment
+>
+> comment body
+
 ## Change Detection
 
 Each published page includes a hidden hash macro:
