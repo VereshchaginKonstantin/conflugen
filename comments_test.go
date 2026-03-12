@@ -56,6 +56,45 @@ func TestFetchInlineComments(t *testing.T) {
 		assertEqual(t, "выделенный текст", comments[0].OriginalSelection)
 	})
 
+	t.Run("пропускает ранее восстановленные conflugen комментарии", func(t *testing.T) {
+		t.Parallel()
+
+		response := commentsResponse{
+			Results: []commentResult{
+				{
+					Extensions: commentExtensions{
+						InlineProperties: &inlineProperties{OriginalSelection: "текст"},
+					},
+					Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>настоящий inline</p>"}},
+					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Иван"}},
+				},
+				{
+					Extensions: commentExtensions{
+						InlineProperties: &inlineProperties{OriginalSelection: "старый текст"},
+					},
+					Body: commentBody{Storage: goconfluence.Storage{
+						Value: "<p><strong>[Комментарий от Иван, перенесён conflugen]:</strong></p><p>старый</p>",
+					}},
+					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "conflugen"}},
+				},
+			},
+		}
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer srv.Close()
+
+		api, err := goconfluence.NewAPIWithClient(srv.URL+"/rest/api", srv.Client())
+		assertNoError(t, err)
+
+		comments, err := fetchInlineComments(api, srv.URL+"/rest/api", "12345")
+		assertNoError(t, err)
+		assertEqual(t, 1, len(comments))
+		assertEqual(t, "<p>настоящий inline</p>", comments[0].Body)
+	})
+
 	t.Run("пустой список при отсутствии inline-комментариев", func(t *testing.T) {
 		t.Parallel()
 

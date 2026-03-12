@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	goconfluence "github.com/virtomize/confluence-go-api"
 )
+
+const conflugenCommentMarker = "перенесён conflugen"
 
 // rawRequester выполняет HTTP-запросы с авторизацией Confluence
 type rawRequester interface {
@@ -96,6 +99,9 @@ func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]comm
 	var comments []commentData
 	for _, r := range resp.Results {
 		if r.Extensions.InlineProperties == nil || r.Extensions.InlineProperties.OriginalSelection == "" {
+			continue
+		}
+		if strings.Contains(r.Body.Storage.Value, conflugenCommentMarker) {
 			continue
 		}
 		comments = append(comments, commentData{
