@@ -2,27 +2,52 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 
 	goconfluence "github.com/virtomize/confluence-go-api"
 )
 
-const conflugenSavedMarker = `<ac:structured-macro ac:name="noformat"><ac:plain-text-body><![CDATA[conflugen-saved]]></ac:plain-text-body></ac:structured-macro>`
+var savedHashRegex = regexp.MustCompile(`conflugen-saved:([a-f0-9]{64})`)
 
 // rawRequester выполняет HTTP-запросы с авторизацией Confluence
 type rawRequester interface {
 	Request(req *http.Request) ([]byte, error)
 }
 
-// commentData — данные inline-комментария со страницы
+// commentData — данные комментария со страницы
 type commentData struct {
 	Author            string
 	Body              string
 	OriginalSelection string
+}
+
+// commentHash вычисляет sha256 хеш тела комментария
+func commentHash(body string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(body)))
+}
+
+// savedMarker создаёт Confluence noformat макрос с хешем
+func savedMarker(hash string) string {
+	return fmt.Sprintf(
+		`<ac:structured-macro ac:name="noformat"><ac:plain-text-body><![CDATA[conflugen-saved:%s]]></ac:plain-text-body></ac:structured-macro>`,
+		hash,
+	)
+}
+
+// extractSavedHashes извлекает все хеши conflugen-saved из тела комментария
+func extractSavedHashes(body string) []string {
+	matches := savedHashRegex.FindAllStringSubmatch(body, -1)
+	hashes := make([]string, 0, len(matches))
+	for _, m := range matches {
+		hashes = append(hashes, m[1])
+	}
+	return hashes
 }
 
 // commentsResponse — структура ответа Confluence API для комментариев
@@ -58,10 +83,10 @@ type commentAuthor struct {
 
 // createCommentRequest — тело POST-запроса для создания комментария
 type createCommentRequest struct {
-	Type      string                `json:"type"`
+	Type      string                 `json:"type"`
 	Container createCommentContainer `json:"container"`
-	Space     createCommentSpace    `json:"space"`
-	Body      createCommentBody     `json:"body"`
+	Space     createCommentSpace     `json:"space"`
+	Body      createCommentBody      `json:"body"`
 }
 
 type createCommentContainer struct {
@@ -99,17 +124,17 @@ func fetchComments(requester rawRequester, url string) ([]commentResult, error) 
 
 // fetchNewInlineComments получает inline-комментарии, которые ещё не были сохранены conflugen
 func fetchNewInlineComments(requester rawRequester, baseURL, pageID string) ([]commentData, error) {
-	// Получаем все комментарии и собираем тела уже сохранённых
+	// Получаем все комментарии и собираем хеши уже сохранённых
 	allURL := baseURL + "/content/" + pageID + "/child/comment?expand=body.storage"
 	allResults, err := fetchComments(requester, allURL)
 	if err != nil {
 		return nil, fmt.Errorf("чтение всех комментариев: %w", err)
 	}
 
-	savedBodies := make(map[string]bool)
+	savedHashes := make(map[string]bool)
 	for _, r := range allResults {
-		if strings.Contains(r.Body.Storage.Value, "conflugen-saved") {
-			savedBodies[r.Body.Storage.Value] = true
+		for _, h := range extractSavedHashes(r.Body.Storage.Value) {
+			savedHashes[h] = true
 		}
 	}
 
@@ -122,11 +147,11 @@ func fetchNewInlineComments(requester rawRequester, baseURL, pageID string) ([]c
 
 	var comments []commentData
 	for _, r := range inlineResults {
-		if strings.Contains(r.Body.Storage.Value, "conflugen-saved") {
+		if strings.Contains(r.Body.Storage.Value, "conflugen-saved:") {
 			continue
 		}
-		// Пропускаем если тело этого комментария уже есть в сохранённых
-		if alreadySaved(r.Body.Storage.Value, savedBodies) {
+		h := commentHash(r.Body.Storage.Value)
+		if savedHashes[h] {
 			continue
 		}
 		comments = append(comments, commentData{
@@ -137,16 +162,6 @@ func fetchNewInlineComments(requester rawRequester, baseURL, pageID string) ([]c
 	}
 
 	return comments, nil
-}
-
-// alreadySaved проверяет, содержит ли какой-нибудь сохранённый комментарий тело inline-комментария
-func alreadySaved(inlineBody string, savedBodies map[string]bool) bool {
-	for saved := range savedBodies {
-		if strings.Contains(saved, inlineBody) {
-			return true
-		}
-	}
-	return false
 }
 
 func inlineSelection(props *inlineProperties) string {
@@ -206,12 +221,14 @@ func preserveComments(requester rawRequester, baseURL, pageID, spaceKey string) 
 
 	return func() error {
 		for _, c := range comments {
+			hash := commentHash(c.Body)
+			marker := savedMarker(hash)
 			quote := ""
 			if c.OriginalSelection != "" {
 				quote = fmt.Sprintf("<blockquote><p>%s</p></blockquote>", c.OriginalSelection)
 			}
 			text := fmt.Sprintf("%s<p><strong>[Комментарий от %s, перенесён conflugen]:</strong></p>%s%s",
-				conflugenSavedMarker, c.Author, quote, c.Body)
+				marker, c.Author, quote, c.Body)
 			if err := createPageComment(requester, baseURL, pageID, spaceKey, text); err != nil {
 				return fmt.Errorf("восстановление комментария: %w", err)
 			}

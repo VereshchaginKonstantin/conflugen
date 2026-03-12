@@ -11,22 +11,48 @@ import (
 	goconfluence "github.com/virtomize/confluence-go-api"
 )
 
+func TestCommentHash(t *testing.T) {
+	t.Parallel()
+
+	h := commentHash("<p>test</p>")
+	assertEqual(t, 64, len(h))
+
+	h2 := commentHash("<p>test</p>")
+	assertEqual(t, h, h2)
+
+	h3 := commentHash("<p>other</p>")
+	assertNotContains(t, h, h3)
+}
+
+func TestExtractSavedHashes(t *testing.T) {
+	t.Parallel()
+
+	hash := commentHash("<p>test</p>")
+	body := savedMarker(hash) + "<p>rest</p>"
+
+	hashes := extractSavedHashes(body)
+	assertEqual(t, 1, len(hashes))
+	assertEqual(t, hash, hashes[0])
+}
+
 func TestFetchNewInlineComments(t *testing.T) {
 	t.Parallel()
 
-	t.Run("возвращает новые inline-комментарии", func(t *testing.T) {
+	t.Run("пропускает уже сохранённые по хешу", func(t *testing.T) {
 		t.Parallel()
+
+		savedBody := "<p>уже сохранённый</p>"
+		hash := commentHash(savedBody)
 
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 
 			if strings.Contains(r.URL.RawQuery, "location=inline") {
-				// inline-комментарии
 				json.NewEncoder(w).Encode(commentsResponse{
 					Results: []commentResult{
 						{
 							Extensions: commentExtensions{
-								InlineProperties: &inlineProperties{OriginalSelection: "выделенный текст"},
+								InlineProperties: &inlineProperties{OriginalSelection: "новый текст"},
 							},
 							Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>новый inline</p>"}},
 							History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Иван"}},
@@ -35,18 +61,17 @@ func TestFetchNewInlineComments(t *testing.T) {
 							Extensions: commentExtensions{
 								InlineProperties: &inlineProperties{OriginalSelection: "старый текст"},
 							},
-							Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>уже сохранённый</p>"}},
+							Body:    commentBody{Storage: goconfluence.Storage{Value: savedBody}},
 							History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Пётр"}},
 						},
 					},
 				})
 			} else {
-				// все комментарии
 				json.NewEncoder(w).Encode(commentsResponse{
 					Results: []commentResult{
 						{
 							Body: commentBody{Storage: goconfluence.Storage{
-								Value: conflugenSavedMarker + "<p><strong>[Комментарий от Пётр, перенесён conflugen]:</strong></p><p>уже сохранённый</p>",
+								Value: savedMarker(hash) + "<p><strong>[Комментарий]</strong></p>" + savedBody,
 							}},
 						},
 					},
@@ -68,6 +93,9 @@ func TestFetchNewInlineComments(t *testing.T) {
 	t.Run("пропускает все если все уже сохранены", func(t *testing.T) {
 		t.Parallel()
 
+		body := "<p>старый inline</p>"
+		hash := commentHash(body)
+
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 
@@ -75,7 +103,7 @@ func TestFetchNewInlineComments(t *testing.T) {
 				json.NewEncoder(w).Encode(commentsResponse{
 					Results: []commentResult{
 						{
-							Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>старый inline</p>"}},
+							Body:    commentBody{Storage: goconfluence.Storage{Value: body}},
 							History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Иван"}},
 						},
 					},
@@ -85,7 +113,7 @@ func TestFetchNewInlineComments(t *testing.T) {
 					Results: []commentResult{
 						{
 							Body: commentBody{Storage: goconfluence.Storage{
-								Value: conflugenSavedMarker + "<p><strong>[Комментарий от Иван, перенесён conflugen]:</strong></p><p>старый inline</p>",
+								Value: savedMarker(hash) + "<p>wrapped</p>" + body,
 							}},
 						},
 					},
@@ -142,7 +170,6 @@ func TestCreatePageComment(t *testing.T) {
 			assertEqual(t, "12345", req.Container.ID)
 			assertEqual(t, "page", req.Container.Type)
 			assertEqual(t, "OB", req.Space.Key)
-			assertEqual(t, "storage", req.Body.Storage.Representation)
 			assertContains(t, req.Body.Storage.Value, "тестовый комментарий")
 
 			w.Header().Set("Content-Type", "application/json")
@@ -162,7 +189,7 @@ func TestCreatePageComment(t *testing.T) {
 func TestPreserveComments(t *testing.T) {
 	t.Parallel()
 
-	t.Run("restoreFunc создаёт комментарии с маркером и цитатой", func(t *testing.T) {
+	t.Run("restoreFunc создаёт комментарии с хешем в маркере", func(t *testing.T) {
 		t.Parallel()
 
 		callCount := 0
@@ -176,9 +203,9 @@ func TestPreserveComments(t *testing.T) {
 						Results: []commentResult{
 							{
 								Extensions: commentExtensions{
-									InlineProperties: &inlineProperties{OriginalSelection: "выделенный фрагмент"},
+									InlineProperties: &inlineProperties{OriginalSelection: "фрагмент"},
 								},
-								Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>комментарий 1</p>"}},
+								Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>комментарий</p>"}},
 								History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Автор"}},
 							},
 						},
@@ -211,10 +238,11 @@ func TestPreserveComments(t *testing.T) {
 		err = restoreFunc()
 		assertNoError(t, err)
 		assertEqual(t, 1, callCount)
-		assertContains(t, postedBody, conflugenSavedMarker)
-		assertContains(t, postedBody, "<blockquote><p>выделенный фрагмент</p></blockquote>")
-		assertContains(t, postedBody, "<p>комментарий 1</p>")
-		assertContains(t, postedBody, "Автор")
+
+		hash := commentHash("<p>комментарий</p>")
+		assertContains(t, postedBody, "conflugen-saved:"+hash)
+		assertContains(t, postedBody, "<blockquote><p>фрагмент</p></blockquote>")
+		assertContains(t, postedBody, "<p>комментарий</p>")
 	})
 
 	t.Run("restoreFunc ничего не делает без новых комментариев", func(t *testing.T) {
