@@ -1,0 +1,159 @@
+# conflugen
+
+CLI tool that syncs Markdown files to Confluence pages using in-file directives.
+
+Each Markdown file declares its target Confluence page via a simple HTML comment directive — similar to how `//go:generate go-enum` annotations work. Only changed pages are updated (SHA256 hash tracking).
+
+## Install
+
+```bash
+go install github.com/VereshchaginKonstantin/conflugen@latest
+```
+
+## Quick Start
+
+1. Add a directive to your Markdown file:
+
+```markdown
+<!-- +conflugen parent-id=603773525 space-key=OB title="Архитектура сервиса" -->
+
+# Обзор архитектуры
+
+Сервис состоит из следующих компонентов...
+```
+
+2. Run conflugen:
+
+```bash
+conflugen -f docs/architecture.md
+```
+
+## Directive Format
+
+Directives are HTML comments with the `+conflugen` prefix. Place them at the top of any `.md` file:
+
+```markdown
+<!-- +conflugen parent-id=123456 space-key=OB title="Custom Title" -->
+```
+
+Or split across multiple lines:
+
+```markdown
+<!-- +conflugen parent-id=123456 space-key=OB -->
+<!-- +conflugen title="Custom Title" -->
+```
+
+### Parameters
+
+| Parameter   | Required | Description                                          |
+|-------------|----------|------------------------------------------------------|
+| `parent-id` | yes      | ID of the parent Confluence page                     |
+| `space-key` | yes      | Confluence space key                                 |
+| `title`     | no       | Page title (defaults to filename without `.md`)      |
+
+All `<!-- +conflugen ... -->` lines are stripped from content before publishing.
+
+## Usage
+
+```bash
+# Process specific files
+conflugen -f docs/architecture.md -f docs/api.md
+
+# Positional arguments also work
+conflugen docs/architecture.md docs/api.md
+
+# Dry run — see what would happen without making changes
+conflugen -f docs/architecture.md --dry-run
+
+# Custom Confluence URL
+conflugen -f docs/architecture.md --url https://confluence.example.com/rest/api
+
+# Debug mode (verbose Confluence API output)
+conflugen -f docs/architecture.md --debug
+```
+
+### Flags
+
+| Flag            | Description                                   | Default                              |
+|-----------------|-----------------------------------------------|--------------------------------------|
+| `-f`            | Markdown file to process (repeatable)         | —                                    |
+| `--token`       | Confluence API token (or `CONFLUENCE_TOKEN`)  | —                                    |
+| `--dry-run`     | Preview mode, no changes                      | `false`                              |
+| `--debug`       | Verbose Confluence API output                 | `false`                              |
+| `--url`         | Confluence REST API URL                       | `https://confluence.example.com/rest/api` |
+
+### Authentication
+
+Token can be provided via:
+- `--token` flag
+- `CONFLUENCE_TOKEN` environment variable
+
+In `--dry-run` mode, no token is required.
+
+## Makefile Integration
+
+Like `go-enum`, you can add conflugen targets to your Makefile to process specific files:
+
+```makefile
+.PHONY: conflugen
+conflugen:
+	conflugen \
+		-f docs/architecture.md \
+		-f docs/api-reference.md \
+		-f docs/deployment.md
+```
+
+Or with `go run`:
+
+```makefile
+.PHONY: conflugen
+conflugen:
+	go run github.com/VereshchaginKonstantin/conflugen@latest \
+		-f docs/architecture.md \
+		-f docs/api-reference.md
+```
+
+### Example: project Makefile
+
+```makefile
+.PHONY: generate-docs
+generate-docs:
+	conflugen \
+		-f docs/architecture.md \
+		-f docs/rfc/001-new-feature.md \
+		-f docs/runbook.md
+
+.PHONY: generate-docs-dry
+generate-docs-dry:
+	conflugen --dry-run \
+		-f docs/architecture.md \
+		-f docs/rfc/001-new-feature.md
+```
+
+## Supported Markdown Features
+
+- **GitHub Flavored Markdown** (GFM) — tables, strikethrough, task lists
+- **Fenced code blocks** → Confluence `code` macro with language highlighting
+- **PlantUML** — ` ```plantuml ` blocks → Confluence PlantUML macro
+- **Spoilers** — `<details><summary>` → Confluence `ui-expand` macro
+- **Links** — automatic conversion to Confluence link format
+
+## How It Works
+
+1. Reads each specified `.md` file
+2. Parses `<!-- +conflugen ... -->` directives
+3. Strips directives from content
+4. Converts Markdown to Confluence Storage Format (HTML/XML)
+5. Computes SHA256 hash of the HTML content
+6. Creates or updates the Confluence page (skips if hash matches)
+7. Appends a footer with "auto-generated" note and hash for change detection
+
+## Change Detection
+
+Each published page includes a hidden hash macro:
+
+```
+conflugen-hash:<sha256>
+```
+
+On subsequent runs, conflugen compares the hash — if content hasn't changed, the page is skipped. This prevents unnecessary version bumps in Confluence.
