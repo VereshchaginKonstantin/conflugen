@@ -13,7 +13,7 @@ import (
 func TestFetchInlineComments(t *testing.T) {
 	t.Parallel()
 
-	t.Run("возвращает только inline-комментарии", func(t *testing.T) {
+	t.Run("возвращает все комментарии кроме помеченных маркером", func(t *testing.T) {
 		t.Parallel()
 
 		response := commentsResponse{
@@ -31,9 +31,11 @@ func TestFetchInlineComments(t *testing.T) {
 					History:    commentHistory{CreatedBy: commentAuthor{DisplayName: "Пётр Петров"}},
 				},
 				{
-					Extensions: commentExtensions{InlineProperties: &inlineProperties{OriginalSelection: ""}},
-					Body:       commentBody{Storage: goconfluence.Storage{Value: "<p>комментарий с пустым selection</p>"}},
-					History:    commentHistory{CreatedBy: commentAuthor{DisplayName: "Сидор Сидоров"}},
+					Extensions: commentExtensions{},
+					Body: commentBody{Storage: goconfluence.Storage{
+						Value: "<!-- conflugen-saved --><p><strong>[Комментарий от Кто-то, перенесён conflugen]:</strong></p><p>старый</p>",
+					}},
+					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Кто-то"}},
 				},
 			},
 		}
@@ -50,39 +52,19 @@ func TestFetchInlineComments(t *testing.T) {
 
 		comments, err := fetchInlineComments(api, srv.URL+"/rest/api", "12345")
 		assertNoError(t, err)
-		assertEqual(t, 1, len(comments))
+		assertEqual(t, 2, len(comments))
 		assertEqual(t, "Иван Иванов", comments[0].Author)
-		assertEqual(t, "<p>inline комментарий</p>", comments[0].Body)
 		assertEqual(t, "выделенный текст", comments[0].OriginalSelection)
+		assertEqual(t, "Пётр Петров", comments[1].Author)
+		assertEqual(t, "", comments[1].OriginalSelection)
 	})
 
-	t.Run("пропускает ранее восстановленные conflugen комментарии", func(t *testing.T) {
+	t.Run("пустой список", func(t *testing.T) {
 		t.Parallel()
-
-		response := commentsResponse{
-			Results: []commentResult{
-				{
-					Extensions: commentExtensions{
-						InlineProperties: &inlineProperties{OriginalSelection: "текст"},
-					},
-					Body:    commentBody{Storage: goconfluence.Storage{Value: "<p>настоящий inline</p>"}},
-					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Иван"}},
-				},
-				{
-					Extensions: commentExtensions{
-						InlineProperties: &inlineProperties{OriginalSelection: "старый текст"},
-					},
-					Body: commentBody{Storage: goconfluence.Storage{
-						Value: "<p><strong>[Комментарий от Иван, перенесён conflugen]:</strong></p><p>старый</p>",
-					}},
-					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "conflugen"}},
-				},
-			},
-		}
 
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
+			json.NewEncoder(w).Encode(commentsResponse{Results: []commentResult{}})
 		}))
 		defer srv.Close()
 
@@ -91,14 +73,22 @@ func TestFetchInlineComments(t *testing.T) {
 
 		comments, err := fetchInlineComments(api, srv.URL+"/rest/api", "12345")
 		assertNoError(t, err)
-		assertEqual(t, 1, len(comments))
-		assertEqual(t, "<p>настоящий inline</p>", comments[0].Body)
+		assertEqual(t, 0, len(comments))
 	})
 
-	t.Run("пустой список при отсутствии inline-комментариев", func(t *testing.T) {
+	t.Run("только маркированные — пустой результат", func(t *testing.T) {
 		t.Parallel()
 
-		response := commentsResponse{Results: []commentResult{}}
+		response := commentsResponse{
+			Results: []commentResult{
+				{
+					Body: commentBody{Storage: goconfluence.Storage{
+						Value: "<!-- conflugen-saved --><p>ранее сохранённый</p>",
+					}},
+					History: commentHistory{CreatedBy: commentAuthor{DisplayName: "Bot"}},
+				},
+			},
+		}
 
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -157,7 +147,7 @@ func TestCreatePageComment(t *testing.T) {
 func TestPreserveComments(t *testing.T) {
 	t.Parallel()
 
-	t.Run("restoreFunc создаёт комментарии с цитатой выделенного текста", func(t *testing.T) {
+	t.Run("restoreFunc создаёт комментарии с маркером и цитатой", func(t *testing.T) {
 		t.Parallel()
 
 		callCount := 0
@@ -203,12 +193,13 @@ func TestPreserveComments(t *testing.T) {
 		err = restoreFunc()
 		assertNoError(t, err)
 		assertEqual(t, 1, callCount)
+		assertContains(t, postedBody, "<!-- conflugen-saved -->")
 		assertContains(t, postedBody, "<blockquote><p>выделенный фрагмент</p></blockquote>")
 		assertContains(t, postedBody, "<p>комментарий 1</p>")
 		assertContains(t, postedBody, "Автор")
 	})
 
-	t.Run("restoreFunc ничего не делает без inline-комментариев", func(t *testing.T) {
+	t.Run("restoreFunc ничего не делает без комментариев", func(t *testing.T) {
 		t.Parallel()
 
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

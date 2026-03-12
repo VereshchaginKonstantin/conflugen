@@ -11,7 +11,7 @@ import (
 	goconfluence "github.com/virtomize/confluence-go-api"
 )
 
-const conflugenCommentMarker = "перенесён conflugen"
+const conflugenSavedMarker = "<!-- conflugen-saved -->"
 
 // rawRequester выполняет HTTP-запросы с авторизацией Confluence
 type rawRequester interface {
@@ -79,7 +79,7 @@ type createCommentBody struct {
 
 // fetchInlineComments получает inline-комментарии страницы
 func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]commentData, error) {
-	url := baseURL + "/content/" + pageID + "/child/comment?location=inline&expand=body.storage,extensions.inlineProperties,history"
+	url := baseURL + "/content/" + pageID + "/child/comment?expand=body.storage,extensions.inlineProperties,history"
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -98,20 +98,24 @@ func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]comm
 
 	var comments []commentData
 	for _, r := range resp.Results {
-		if r.Extensions.InlineProperties == nil || r.Extensions.InlineProperties.OriginalSelection == "" {
-			continue
-		}
-		if strings.Contains(r.Body.Storage.Value, conflugenCommentMarker) {
+		if strings.Contains(r.Body.Storage.Value, conflugenSavedMarker) {
 			continue
 		}
 		comments = append(comments, commentData{
 			Author:            r.History.CreatedBy.DisplayName,
 			Body:              r.Body.Storage.Value,
-			OriginalSelection: r.Extensions.InlineProperties.OriginalSelection,
+			OriginalSelection: inlineSelection(r.Extensions.InlineProperties),
 		})
 	}
 
 	return comments, nil
+}
+
+func inlineSelection(props *inlineProperties) string {
+	if props == nil {
+		return ""
+	}
+	return props.OriginalSelection
 }
 
 // createPageComment создаёт обычный комментарий к странице
@@ -168,7 +172,8 @@ func preserveComments(requester rawRequester, baseURL, pageID, spaceKey string) 
 			if c.OriginalSelection != "" {
 				quote = fmt.Sprintf("<blockquote><p>%s</p></blockquote>", c.OriginalSelection)
 			}
-			text := fmt.Sprintf("<p><strong>[Комментарий от %s, перенесён conflugen]:</strong></p>%s%s", c.Author, quote, c.Body)
+			text := fmt.Sprintf("%s<p><strong>[Комментарий от %s, перенесён conflugen]:</strong></p>%s%s",
+				conflugenSavedMarker, c.Author, quote, c.Body)
 			if err := createPageComment(requester, baseURL, pageID, spaceKey, text); err != nil {
 				return fmt.Errorf("восстановление комментария: %w", err)
 			}
