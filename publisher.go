@@ -17,7 +17,7 @@ type confluenceAPI interface {
 	UpdateContent(content *goconfluence.Content) (*goconfluence.Content, error)
 }
 
-var hashMacroRegex = regexp.MustCompile(`conflugen-hash:([a-f0-9]{64})`)
+var hashMacroRegex = regexp.MustCompile(`conflugen-(?:hash|auto-generated):([a-f0-9]{64})`)
 
 func extractStoredHash(html string) string {
 	matches := hashMacroRegex.FindStringSubmatch(html)

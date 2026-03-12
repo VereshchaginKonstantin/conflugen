@@ -58,7 +58,7 @@ func TestAnnotateHTML(t *testing.T) {
 		result := annotateHTML("<h1>Test</h1>", "abc123")
 
 		assertContains(t, result, "<h1>Test</h1>")
-		assertContains(t, result, "conflugen-hash:abc123")
+		assertContains(t, result, "conflugen-auto-generated:abc123")
 		assertContains(t, result, "conflugen")
 	})
 }

@@ -49,8 +49,5 @@ func convertMarkdown(md goldmark.Markdown, content []byte) (string, string, erro
 func annotateHTML(htmlContent, hash string) string {
 	return htmlContent + "\n\n" +
 		"<p>\n  <br/>\n</p>\n" +
-		"<p>Данная страница сгенерирована автоматически " +
-		"с помощью conflugen</p>\n" +
-		`<p style="font-size:0;line-height:0;margin:0;padding:0;color:transparent">` +
-		"conflugen-hash:" + hash + "</p>"
+		"<p><sub>conflugen-auto-generated:" + hash + "</sub></p>"
 }
