@@ -98,7 +98,7 @@ func fetchInlineComments(requester rawRequester, baseURL, pageID string) ([]comm
 
 	var comments []commentData
 	for _, r := range resp.Results {
-		if strings.Contains(r.Body.Storage.Value, conflugenSavedMarker) {
+		if strings.Contains(r.Body.Storage.Value, "conflugen-saved") {
 			continue
 		}
 		comments = append(comments, commentData{
