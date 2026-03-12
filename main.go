@@ -28,7 +28,7 @@ func main() {
 	token := flag.String("token", "", "Confluence API token (или env CONFLUENCE_TOKEN)")
 	dryRun := flag.Bool("dry-run", false, "режим без изменений — только вывод плана")
 	debug := flag.Bool("debug", false, "выводить отладочную информацию Confluence API")
-	confluenceURL := flag.String("url", defaultConfluenceURL, "URL Confluence REST API")
+	confluenceURL := flag.String("url", "", "URL Confluence REST API (или env CONFLUENCE_URL)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "conflugen — синхронизация Markdown → Confluence по директивам в файлах\n\n")
@@ -65,8 +65,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	apiURL := *confluenceURL
+	if apiURL == "" {
+		apiURL = os.Getenv("CONFLUENCE_URL")
+	}
+
+	if apiURL == "" {
+		apiURL = defaultConfluenceURL
+	}
+
 	cfg := Config{
-		ConfluenceURL: *confluenceURL,
+		ConfluenceURL: apiURL,
 		Token:         apiToken,
 		Files:         files,
 		DryRun:        *dryRun,

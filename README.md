@@ -55,7 +55,14 @@ All `<!-- +conflugen ... -->` lines are stripped from content before publishing.
 
 ## Usage
 
+> **Important:** You must specify your Confluence URL via `--url` flag or `CONFLUENCE_URL` environment variable.
+> The default value (`confluence.example.com`) is a placeholder and will not work.
+
 ```bash
+# Set Confluence URL (do this once per shell session)
+export CONFLUENCE_URL="https://confluence.your-company.com/rest/api"
+export CONFLUENCE_TOKEN="your-token-here"
+
 # Process specific files
 conflugen -f docs/architecture.md -f docs/api.md
 
@@ -65,8 +72,8 @@ conflugen docs/architecture.md docs/api.md
 # Dry run — see what would happen without making changes
 conflugen -f docs/architecture.md --dry-run
 
-# Custom Confluence URL
-conflugen -f docs/architecture.md --url https://confluence.example.com/rest/api
+# Explicit URL via flag
+conflugen -f docs/architecture.md --url https://confluence.your-company.com/rest/api
 
 # Debug mode (verbose Confluence API output)
 conflugen -f docs/architecture.md --debug
@@ -78,9 +85,54 @@ conflugen -f docs/architecture.md --debug
 |-----------------|-----------------------------------------------|--------------------------------------|
 | `-f`            | Markdown file to process (repeatable)         | —                                    |
 | `--token`       | Confluence API token (or `CONFLUENCE_TOKEN`)  | —                                    |
+| `--url`         | Confluence REST API URL (or `CONFLUENCE_URL`) | `https://confluence.example.com/rest/api` |
 | `--dry-run`     | Preview mode, no changes                      | `false`                              |
 | `--debug`       | Verbose Confluence API output                 | `false`                              |
-| `--url`         | Confluence REST API URL                       | `https://confluence.example.com/rest/api` |
+
+### Troubleshooting: `dial tcp: lookup confluence.example.com: no such host`
+
+This error means you did not set the `--url` flag. The default URL is a placeholder.
+
+**Fix:** specify your Confluence instance URL:
+
+```bash
+# Via environment variable (recommended — set once in .env or .bashrc)
+export CONFLUENCE_URL="https://confluence.your-company.com/rest/api"
+conflugen -f docs/file.md
+
+# Or via flag
+conflugen -f docs/file.md --url https://confluence.your-company.com/rest/api
+```
+
+### Confluence URL
+
+conflugen needs the REST API URL of your Confluence instance.
+
+**How to find your Confluence URL:**
+
+1. Open any page in your Confluence in a browser
+2. Look at the address bar — the base URL is everything before `/display/`, `/pages/`, or `/spaces/`
+3. Append `/rest/api` to get the API URL
+
+Examples:
+
+| Browser address bar                                          | `CONFLUENCE_URL` value                          |
+|--------------------------------------------------------------|-------------------------------------------------|
+| `https://confluence.your-company.com/display/TEAM/Page`      | `https://confluence.your-company.com/rest/api`  |
+| `https://wiki.example.org/pages/viewpage.action?pageId=123`  | `https://wiki.example.org/rest/api`             |
+| `https://mycompany.atlassian.net/wiki/spaces/DEV`            | `https://mycompany.atlassian.net/wiki/rest/api` |
+
+Set it once via environment variable:
+
+```bash
+export CONFLUENCE_URL="https://confluence.your-company.com/rest/api"
+```
+
+Or in `.env` file:
+
+```bash
+CONFLUENCE_URL=https://confluence.your-company.com/rest/api
+```
 
 ### Authentication
 
@@ -107,6 +159,7 @@ Option 2 — `.env` file (add to `.gitignore`!):
 
 ```bash
 # .env
+CONFLUENCE_URL=https://confluence.your-company.com/rest/api
 CONFLUENCE_TOKEN=your-token-here
 ```
 
