@@ -125,42 +125,85 @@ In `--dry-run` mode, no token is required.
 
 ## Makefile Integration
 
-Like `go-enum`, you can add conflugen targets to your Makefile to process specific files:
+### Install target (like go-enum)
+
+Add an install target to your Makefile, similar to how `go-enum` is installed:
 
 ```makefile
-.PHONY: conflugen
-conflugen:
-	conflugen \
-		-f docs/architecture.md \
-		-f docs/api-reference.md \
-		-f docs/deployment.md
+CONFLUGEN_VERSION ?= latest
+
+.PHONY: install-conflugen
+install-conflugen:
+	go install github.com/VereshchaginKonstantin/conflugen@$(CONFLUGEN_VERSION)
 ```
 
-Or with `go run`:
-
-```makefile
-.PHONY: conflugen
-conflugen:
-	go run github.com/VereshchaginKonstantin/conflugen@latest \
-		-f docs/architecture.md \
-		-f docs/api-reference.md
-```
-
-### Example: project Makefile
+### Generate docs target
 
 ```makefile
 .PHONY: generate-docs
-generate-docs:
+generate-docs: install-conflugen
 	conflugen \
 		-f docs/architecture.md \
-		-f docs/rfc/001-new-feature.md \
+		-f docs/api-reference.md \
+		-f docs/runbook.md
+```
+
+### Full example (go-enum + conflugen)
+
+```makefile
+GO_ENUM_VERSION ?= v0.6.0
+CONFLUGEN_VERSION ?= latest
+
+# --- Install tools ---
+
+.PHONY: install-goenum
+install-goenum:
+	go install github.com/abice/go-enum@$(GO_ENUM_VERSION)
+
+.PHONY: install-conflugen
+install-conflugen:
+	go install github.com/VereshchaginKonstantin/conflugen@$(CONFLUGEN_VERSION)
+
+.PHONY: bin-deps
+bin-deps: install-goenum install-conflugen
+
+# --- Generate ---
+
+.PHONY: generate-enums
+generate-enums: install-goenum
+	go-enum -f internal/pkg/worker/types.go --nocase --marshal --sql
+
+.PHONY: generate-docs
+generate-docs: install-conflugen
+	conflugen \
+		-f docs/architecture.md \
+		-f docs/api-reference.md \
 		-f docs/runbook.md
 
 .PHONY: generate-docs-dry
-generate-docs-dry:
+generate-docs-dry: install-conflugen
 	conflugen --dry-run \
 		-f docs/architecture.md \
-		-f docs/rfc/001-new-feature.md
+		-f docs/api-reference.md
+
+.PHONY: generate
+generate: generate-enums generate-docs
+```
+
+### Usage
+
+```bash
+# Install conflugen
+make install-conflugen
+
+# Publish docs to Confluence
+make generate-docs
+
+# Dry run (preview without changes)
+make generate-docs-dry
+
+# All generation (enums + docs)
+make generate
 ```
 
 ## Supported Markdown Features
