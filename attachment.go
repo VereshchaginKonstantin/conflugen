@@ -13,7 +13,7 @@ import (
 	"github.com/VereshchaginKonstantin/conflugen/extensions"
 )
 
-// uploadMermaidDiagrams загружает mermaid диаграммы как вложения к странице
+// uploadMermaidDiagrams рендерит и загружает mermaid диаграммы как вложения к странице
 func uploadMermaidDiagrams(
 	rawAPI rawRequester,
 	baseURL string,
@@ -21,10 +21,26 @@ func uploadMermaidDiagrams(
 	diagrams []extensions.MermaidDiagram,
 ) error {
 	for _, d := range diagrams {
+		// Загружаем исходник
 		if err := uploadAttachment(rawAPI, baseURL, pageID, d.Filename, d.Content); err != nil {
-			return fmt.Errorf("upload mermaid attachment %s: %w", d.Filename, err)
+			return fmt.Errorf("upload mermaid source %s: %w", d.Filename, err)
 		}
-		log.Printf("  загружена диаграмма: %s", d.Filename)
+
+		// Рендерим SVG через mmdc
+		svg, err := renderMermaidSVG(d.Content)
+		if err != nil {
+			log.Printf("  предупреждение: не удалось отрендерить %s: %v", d.Filename, err)
+			log.Printf("  диаграмма загружена без SVG — в Confluence может не отобразиться")
+			continue
+		}
+
+		// Загружаем SVG
+		svgFilename := d.Filename + ".svg"
+		if err := uploadAttachment(rawAPI, baseURL, pageID, svgFilename, svg); err != nil {
+			return fmt.Errorf("upload mermaid svg %s: %w", svgFilename, err)
+		}
+
+		log.Printf("  загружена диаграмма: %s (+svg)", d.Filename)
 	}
 	return nil
 }

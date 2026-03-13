@@ -271,8 +271,42 @@ make generate
 ### Mermaid Diagrams
 
 Mermaid diagrams in fenced code blocks are automatically converted to the Confluence `mermaid-cloud` macro.
-Diagram content is uploaded as a page attachment — the macro references it by filename.
-Requires the [Mermaid Chart](https://marketplace.atlassian.com/apps/1224722/mermaid-charts-for-confluence) plugin installed on your Confluence instance.
+Diagrams are rendered to SVG locally via `mmdc` (mermaid-cli) and uploaded as page attachments.
+
+> **Note:** If `mmdc` is not installed, conflugen will print a warning and skip SVG rendering.
+> All other features (code blocks, PlantUML, spoilers, links) continue to work normally.
+> The mermaid source will be uploaded, but the diagram may not display in Confluence without the SVG.
+
+#### Setup
+
+1. Install Node.js (v18+):
+
+```bash
+# macOS
+brew install node
+
+# Ubuntu/Debian
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+2. Install mermaid-cli:
+
+```bash
+npm install -g @mermaid-js/mermaid-cli
+```
+
+3. Verify installation:
+
+```bash
+mmdc --version
+```
+
+4. Make sure the [Mermaid Chart](https://marketplace.atlassian.com/apps/1224722/mermaid-charts-for-confluence) plugin is installed on your Confluence instance.
+
+#### Usage
+
+Write mermaid diagrams in fenced code blocks — conflugen handles the rest:
 
 **Flowchart:**
 
@@ -307,6 +341,13 @@ sequenceDiagram
     GW-->>Client: 200 OK
 ```
 ````
+
+#### How it works
+
+1. conflugen finds ` ```mermaid ` blocks in your markdown
+2. Renders each diagram to SVG via `mmdc` (mermaid-cli)
+3. Uploads source + SVG as page attachments
+4. Inserts `mermaid-cloud` macro referencing the attachment
 
 ## How It Works
 
