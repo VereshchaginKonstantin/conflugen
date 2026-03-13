@@ -100,7 +100,7 @@ func TestPublishPage(t *testing.T) {
 
 		api := newStubAPI()
 
-		err := publishPage(api, nil, "", "parent-1", "OB", "New Page", "<p>content</p>", "hash123", false)
+		_, err := publishPage(api, nil, "", "parent-1", "OB", "New Page", "<p>content</p>", "hash123", false)
 
 		assertNoError(t, err)
 		assertEqual(t, 1, len(api.created))
@@ -123,7 +123,7 @@ func TestPublishPage(t *testing.T) {
 			Version: &goconfluence.Version{Number: 1},
 		}
 
-		err := publishPage(api, nil, "", "parent-1", "OB", "Existing", "<p>new</p>", "newhash", false)
+		_, err := publishPage(api, nil, "", "parent-1", "OB", "Existing", "<p>new</p>", "newhash", false)
 
 		assertNoError(t, err)
 		assertEqual(t, 0, len(api.created))
@@ -147,7 +147,7 @@ func TestPublishPage(t *testing.T) {
 			Version: &goconfluence.Version{Number: 1},
 		}
 
-		err := publishPage(api, nil, "", "parent-1", "OB", "Page", "<p>content</p>", hash, false)
+		_, err := publishPage(api, nil, "", "parent-1", "OB", "Page", "<p>content</p>", hash, false)
 
 		assertNoError(t, err)
 		assertEqual(t, 0, len(api.updated))
@@ -158,7 +158,7 @@ func TestPublishPage(t *testing.T) {
 
 		api := newStubAPI()
 
-		err := publishPage(api, nil, "", "parent-1", "OB", "Page", "<p>x</p>", "hash", true)
+		_, err := publishPage(api, nil, "", "parent-1", "OB", "Page", "<p>x</p>", "hash", true)
 
 		assertNoError(t, err)
 		assertEqual(t, 0, len(api.created))
@@ -174,7 +174,7 @@ func TestPublishPage(t *testing.T) {
 			},
 		}
 
-		err := publishPage(api, nil, "", "parent-1", "OB", "Page", "<p>x</p>", "hash", true)
+		_, err := publishPage(api, nil, "", "parent-1", "OB", "Page", "<p>x</p>", "hash", true)
 
 		assertNoError(t, err)
 		assertEqual(t, 0, len(api.updated))
@@ -186,7 +186,7 @@ func TestPublishPage(t *testing.T) {
 		api := newStubAPI()
 		api.createErr = fmt.Errorf("api error")
 
-		err := publishPage(api, nil, "", "parent-1", "OB", "Page", "<p>x</p>", "hash", false)
+		_, err := publishPage(api, nil, "", "parent-1", "OB", "Page", "<p>x</p>", "hash", false)
 
 		assertError(t, err)
 	})

@@ -264,8 +264,90 @@ make generate
 - **GitHub Flavored Markdown** (GFM) — tables, strikethrough, task lists
 - **Fenced code blocks** → Confluence `code` macro with language highlighting
 - **PlantUML** — ` ```plantuml ` blocks → Confluence PlantUML macro
+- **Mermaid** — ` ```mermaid ` blocks → Confluence `mermaid-cloud` macro (diagrams uploaded as attachments)
 - **Spoilers** — `<details><summary>` → Confluence `ui-expand` macro
 - **Links** — automatic conversion to Confluence link format
+
+### Mermaid Diagrams
+
+Mermaid diagrams in fenced code blocks are automatically converted to the Confluence `mermaid-cloud` macro.
+Diagrams are rendered to SVG locally via `mmdc` (mermaid-cli) and uploaded as page attachments.
+
+> **Note:** If `mmdc` is not installed, conflugen will print a warning and skip SVG rendering.
+> All other features (code blocks, PlantUML, spoilers, links) continue to work normally.
+> The mermaid source will be uploaded, but the diagram may not display in Confluence without the SVG.
+
+#### Setup
+
+1. Install Node.js (v18+):
+
+```bash
+# macOS
+brew install node
+
+# Ubuntu/Debian
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+2. Install mermaid-cli:
+
+```bash
+npm install -g @mermaid-js/mermaid-cli
+```
+
+3. Verify installation:
+
+```bash
+mmdc --version
+```
+
+4. Make sure the [Mermaid Chart](https://marketplace.atlassian.com/apps/1224722/mermaid-charts-for-confluence) plugin is installed on your Confluence instance.
+
+#### Usage
+
+Write mermaid diagrams in fenced code blocks — conflugen handles the rest:
+
+**Flowchart:**
+
+````markdown
+```mermaid
+graph TD
+    A[Запрос от клиента] --> B{Авторизация}
+    B -->|Успех| C[Обработка запроса]
+    B -->|Ошибка| D[401 Unauthorized]
+    C --> E{Валидация}
+    E -->|OK| F[Сохранение в БД]
+    E -->|Ошибка| G[400 Bad Request]
+    F --> H[200 OK]
+```
+````
+
+**Sequence diagram:**
+
+````markdown
+```mermaid
+sequenceDiagram
+    participant Client as Клиент
+    participant GW as API Gateway
+    participant Svc as Сервис
+    participant DB as PostgreSQL
+
+    Client->>GW: POST /api/v1/orders
+    GW->>Svc: gRPC CreateOrder
+    Svc->>DB: INSERT INTO orders
+    DB-->>Svc: OK
+    Svc-->>GW: OrderResponse
+    GW-->>Client: 200 OK
+```
+````
+
+#### How it works
+
+1. conflugen finds ` ```mermaid ` blocks in your markdown
+2. Renders each diagram to SVG via `mmdc` (mermaid-cli)
+3. Uploads source + SVG as page attachments
+4. Inserts `mermaid-cloud` macro referencing the attachment
 
 ## How It Works
 

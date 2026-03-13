@@ -14,11 +14,12 @@ import (
 )
 
 // newMarkdownConverter создаёт конвертер Markdown → Confluence HTML
-func newMarkdownConverter() goldmark.Markdown {
+func newMarkdownConverter(mermaidCollector *extensions.MermaidCollector) goldmark.Markdown {
 	return goldmark.New(
 		goldmark.WithExtensions(
 			extension.GFM,
 			&extensions.PlantUMLExtension{},
+			&extensions.MermaidExtension{Collector: mermaidCollector},
 			&extensions.ConfluenceCodeBlock{},
 			&extensions.SpoilerExtension{},
 		),
