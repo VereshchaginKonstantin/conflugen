@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	goconfluence "github.com/virtomize/confluence-go-api"
+
+	"github.com/VereshchaginKonstantin/conflugen/extensions"
 )
 
 // Config — конфигурация запуска conflugen
@@ -21,7 +23,8 @@ type Config struct {
 
 // Run обрабатывает указанные файлы и синхронизирует их в Confluence
 func Run(cfg Config) error {
-	md := newMarkdownConverter()
+	mermaidCollector := extensions.NewMermaidCollector()
+	md := newMarkdownConverter(mermaidCollector)
 
 	var client confluenceAPI
 	var rawAPI rawRequester
@@ -56,20 +59,27 @@ func Run(cfg Config) error {
 			pageTitle = strings.TrimSuffix(filepath.Base(filePath), ".md")
 		}
 
+		mermaidCollector.Reset()
+
 		htmlContent, contentHash, err := convertMarkdown(md, cleanedContent)
 		if err != nil {
 			return fmt.Errorf("convert %s: %w", filePath, err)
 		}
+
+		diagrams := mermaidCollector.Diagrams()
 
 		log.Printf("обработка: %s → %s (parent=%s, space=%s)",
 			filePath, pageTitle, directive.ParentID, directive.SpaceKey)
 
 		if cfg.DryRun {
 			log.Printf("[DRY RUN] %s → страница \"%s\"", filePath, pageTitle)
+			if len(diagrams) > 0 {
+				log.Printf("[DRY RUN] %d mermaid диаграмм будет загружено", len(diagrams))
+			}
 			continue
 		}
 
-		if err := publishPage(
+		pageID, err := publishPage(
 			client,
 			rawAPI,
 			cfg.ConfluenceURL,
@@ -79,8 +89,15 @@ func Run(cfg Config) error {
 			htmlContent,
 			contentHash,
 			cfg.DryRun,
-		); err != nil {
+		)
+		if err != nil {
 			return fmt.Errorf("publish %s: %w", filePath, err)
+		}
+
+		if len(diagrams) > 0 && pageID != "" {
+			if err := uploadMermaidDiagrams(rawAPI, cfg.ConfluenceURL, pageID, diagrams); err != nil {
+				return fmt.Errorf("upload mermaid diagrams for %s: %w", filePath, err)
+			}
 		}
 	}
 

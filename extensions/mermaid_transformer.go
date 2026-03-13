@@ -1,8 +1,10 @@
 package extensions
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
@@ -12,6 +14,57 @@ import (
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
 )
+
+// MermaidDiagram содержит имя файла и текст диаграммы для загрузки как attachment
+type MermaidDiagram struct {
+	Filename string
+	Content  string
+}
+
+// MermaidCollector собирает диаграммы во время рендеринга
+type MermaidCollector struct {
+	mu       sync.Mutex
+	diagrams []MermaidDiagram
+}
+
+// NewMermaidCollector создаёт новый коллектор
+func NewMermaidCollector() *MermaidCollector {
+	return &MermaidCollector{}
+}
+
+// Add добавляет диаграмму и возвращает имя файла
+func (c *MermaidCollector) Add(content string) string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(content)))
+	filename := "mermaid-" + hash[:8]
+
+	c.diagrams = append(c.diagrams, MermaidDiagram{
+		Filename: filename,
+		Content:  content,
+	})
+
+	return filename
+}
+
+// Diagrams возвращает собранные диаграммы
+func (c *MermaidCollector) Diagrams() []MermaidDiagram {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	result := make([]MermaidDiagram, len(c.diagrams))
+	copy(result, c.diagrams)
+	return result
+}
+
+// Reset очищает коллектор для повторного использования
+func (c *MermaidCollector) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.diagrams = c.diagrams[:0]
+}
 
 // MermaidTransformer преобразует блоки Mermaid в макрос Confluence
 type MermaidTransformer struct{}
@@ -108,14 +161,16 @@ func (n *MermaidNode) Kind() ast.NodeKind {
 // MermaidHTMLRenderer рендерер для Mermaid узлов
 type MermaidHTMLRenderer struct {
 	html.Config
+	collector *MermaidCollector
 }
 
 // NewMermaidHTMLRenderer создает новый рендерер
 func NewMermaidHTMLRenderer(
-	opts ...html.Option,
+	collector *MermaidCollector, opts ...html.Option,
 ) renderer.NodeRenderer {
 	r := &MermaidHTMLRenderer{
-		Config: html.NewConfig(),
+		Config:    html.NewConfig(),
+		collector: collector,
 	}
 	for _, opt := range opts {
 		opt.SetHTMLOption(&r.Config)
@@ -130,7 +185,7 @@ func (r *MermaidHTMLRenderer) RegisterFuncs(
 	reg.Register(KindMermaid, r.renderMermaid)
 }
 
-// renderMermaid рендерит Mermaid узел в макрос Confluence
+// renderMermaid рендерит Mermaid узел в макрос Confluence mermaid-cloud
 func (r *MermaidHTMLRenderer) renderMermaid(
 	w util.BufWriter,
 	_ []byte,
@@ -146,17 +201,18 @@ func (r *MermaidHTMLRenderer) renderMermaid(
 		return ast.WalkContinue, nil
 	}
 
-	escapedContent := strings.ReplaceAll(
-		mermaidNode.content, "]]>", "]]&gt;",
-	)
+	filename := r.collector.Add(mermaidNode.content)
 
 	macro := fmt.Sprintf(
-		`<ac:structured-macro ac:name="mermaid"`+
-			` ac:schema-version="1">`+"\n"+
-			`<ac:plain-text-body><![CDATA[%s]]>`+
-			`</ac:plain-text-body>`+"\n"+
+		`<ac:structured-macro ac:name="mermaid-cloud"`+
+			` ac:schema-version="1">`+
+			`<ac:parameter ac:name="filename">%s</ac:parameter>`+
+			`<ac:parameter ac:name="toolbar">bottom</ac:parameter>`+
+			`<ac:parameter ac:name="format">svg</ac:parameter>`+
+			`<ac:parameter ac:name="zoom">fit</ac:parameter>`+
+			`<ac:parameter ac:name="revision">1</ac:parameter>`+
 			`</ac:structured-macro>`,
-		escapedContent,
+		filename,
 	)
 
 	_, _ = w.WriteString(macro)
@@ -165,7 +221,9 @@ func (r *MermaidHTMLRenderer) renderMermaid(
 }
 
 // MermaidExtension добавляет расширение к Goldmark
-type MermaidExtension struct{}
+type MermaidExtension struct {
+	Collector *MermaidCollector
+}
 
 // Extend расширяет парсер и рендерер
 func (e *MermaidExtension) Extend(m goldmark.Markdown) {
@@ -177,7 +235,7 @@ func (e *MermaidExtension) Extend(m goldmark.Markdown) {
 
 	m.Renderer().AddOptions(
 		renderer.WithNodeRenderers(
-			util.Prioritized(NewMermaidHTMLRenderer(), 500),
+			util.Prioritized(NewMermaidHTMLRenderer(e.Collector), 500),
 		),
 	)
 }

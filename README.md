@@ -264,13 +264,14 @@ make generate
 - **GitHub Flavored Markdown** (GFM) — tables, strikethrough, task lists
 - **Fenced code blocks** → Confluence `code` macro with language highlighting
 - **PlantUML** — ` ```plantuml ` blocks → Confluence PlantUML macro
-- **Mermaid** — ` ```mermaid ` blocks → Confluence Mermaid macro
+- **Mermaid** — ` ```mermaid ` blocks → Confluence `mermaid-cloud` macro (diagrams uploaded as attachments)
 - **Spoilers** — `<details><summary>` → Confluence `ui-expand` macro
 - **Links** — automatic conversion to Confluence link format
 
 ### Mermaid Diagrams
 
-Mermaid diagrams in fenced code blocks are automatically converted to the Confluence Mermaid macro.
+Mermaid diagrams in fenced code blocks are automatically converted to the Confluence `mermaid-cloud` macro.
+Diagram content is uploaded as a page attachment — the macro references it by filename.
 Requires the [Mermaid Chart](https://marketplace.atlassian.com/apps/1224722/mermaid-charts-for-confluence) plugin installed on your Confluence instance.
 
 **Flowchart:**

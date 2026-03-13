@@ -2,6 +2,8 @@ package main
 
 import (
 	"testing"
+
+	"github.com/VereshchaginKonstantin/conflugen/extensions"
 )
 
 func TestConvertMarkdown(t *testing.T) {
@@ -10,7 +12,7 @@ func TestConvertMarkdown(t *testing.T) {
 	t.Run("конвертация простого markdown", func(t *testing.T) {
 		t.Parallel()
 
-		md := newMarkdownConverter()
+		md := newMarkdownConverter(extensions.NewMermaidCollector())
 		content := []byte("# Title\n\nParagraph text")
 
 		html, hash, err := convertMarkdown(md, content)
@@ -26,7 +28,7 @@ func TestConvertMarkdown(t *testing.T) {
 	t.Run("одинаковый контент — одинаковый хеш", func(t *testing.T) {
 		t.Parallel()
 
-		md := newMarkdownConverter()
+		md := newMarkdownConverter(extensions.NewMermaidCollector())
 		content := []byte("# Same")
 
 		_, hash1, _ := convertMarkdown(md, content)
@@ -38,7 +40,7 @@ func TestConvertMarkdown(t *testing.T) {
 	t.Run("разный контент — разный хеш", func(t *testing.T) {
 		t.Parallel()
 
-		md := newMarkdownConverter()
+		md := newMarkdownConverter(extensions.NewMermaidCollector())
 
 		_, hash1, _ := convertMarkdown(md, []byte("# A"))
 		_, hash2, _ := convertMarkdown(md, []byte("# B"))

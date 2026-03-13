@@ -27,14 +27,14 @@ func extractStoredHash(html string) string {
 	return ""
 }
 
-// publishPage создаёт или обновляет страницу в Confluence
+// publishPage создаёт или обновляет страницу в Confluence, возвращает pageID
 func publishPage(
 	client confluenceAPI,
 	rawAPI rawRequester,
 	baseURL string,
 	parentID, spaceKey, title, htmlContent, contentHash string,
 	dryRun bool,
-) error {
+) (string, error) {
 	page, err := findChildPage(client, parentID, title)
 	if err != nil {
 		return createPage(client, parentID, spaceKey, title, htmlContent, contentHash, dryRun)
@@ -62,10 +62,10 @@ func createPage(
 	client confluenceAPI,
 	parentID, spaceKey, title, htmlContent, contentHash string,
 	dryRun bool,
-) error {
+) (string, error) {
 	if dryRun {
 		log.Printf("[DRY RUN] создание: %s (parent=%s, space=%s)", title, parentID, spaceKey)
-		return nil
+		return "", nil
 	}
 
 	page := &goconfluence.Content{
@@ -88,17 +88,17 @@ func createPage(
 	if err != nil {
 		errStr := err.Error()
 		if strings.Contains(errStr, "already exists") || strings.Contains(errStr, "400") {
-			return fmt.Errorf(
+			return "", fmt.Errorf(
 				"страница '%s' уже существует в пространстве %s (но не под родителем %s). "+
 					"Переименуйте файл или удалите дубликат в Confluence",
 				title, spaceKey, parentID,
 			)
 		}
-		return fmt.Errorf("CreateContent для %s: %w", title, err)
+		return "", fmt.Errorf("CreateContent для %s: %w", title, err)
 	}
 
 	log.Printf("создана: %s (ID: %s)", title, created.ID)
-	return nil
+	return created.ID, nil
 }
 
 func updatePage(
@@ -107,23 +107,23 @@ func updatePage(
 	baseURL string,
 	spaceKey, pageID, title, htmlContent, contentHash string,
 	dryRun bool,
-) error {
+) (string, error) {
 	currentPage, err := client.GetContentByID(pageID, goconfluence.ContentQuery{
 		Expand: []string{"body.storage", "version"},
 	})
 	if err != nil {
-		return fmt.Errorf("GetContentByID: %w", err)
+		return "", fmt.Errorf("GetContentByID: %w", err)
 	}
 
 	storedHash := extractStoredHash(currentPage.Body.Storage.Value)
 	if storedHash == contentHash {
 		log.Printf("без изменений: %s", title)
-		return nil
+		return pageID, nil
 	}
 
 	if dryRun {
 		log.Printf("[DRY RUN] обновление: %s (ID: %s)", title, pageID)
-		return nil
+		return "", nil
 	}
 
 	var restoreFunc func() error
@@ -155,7 +155,7 @@ func updatePage(
 
 	_, err = client.UpdateContent(updatedContent)
 	if err != nil {
-		return fmt.Errorf("UpdateContent для %s: %w", title, err)
+		return "", fmt.Errorf("UpdateContent для %s: %w", title, err)
 	}
 
 	log.Printf("обновлена: %s (ID: %s)", title, pageID)
@@ -166,5 +166,5 @@ func updatePage(
 		}
 	}
 
-	return nil
+	return pageID, nil
 }
