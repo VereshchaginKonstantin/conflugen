@@ -56,6 +56,7 @@ func (r *confluenceCodeBlockRenderer) renderFencedCodeBlock(
 		"puml":     true,
 		"uml":      true,
 		"mermaid":  true,
+		"gliffy":   true,
 	}
 
 	if diagramLanguages[strings.ToLower(lang)] {

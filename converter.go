@@ -20,6 +20,7 @@ func newMarkdownConverter(mermaidCollector *extensions.MermaidCollector) goldmar
 			extension.GFM,
 			&extensions.PlantUMLExtension{},
 			&extensions.MermaidExtension{Collector: mermaidCollector},
+			&extensions.GliffyExtension{},
 			&extensions.ConfluenceCodeBlock{},
 			&extensions.SpoilerExtension{},
 		),
