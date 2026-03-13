@@ -51,13 +51,14 @@ func (r *confluenceCodeBlockRenderer) renderFencedCodeBlock(
 
 	lang := r.getLanguage(source, codeBlock)
 
-	plantUMLLanguages := map[string]bool{
+	diagramLanguages := map[string]bool{
 		"plantuml": true,
 		"puml":     true,
 		"uml":      true,
+		"mermaid":  true,
 	}
 
-	if plantUMLLanguages[strings.ToLower(lang)] {
+	if diagramLanguages[strings.ToLower(lang)] {
 		return ast.WalkContinue, nil
 	}
 	content := r.getCodeContent(source, codeBlock)

@@ -19,6 +19,7 @@ func newMarkdownConverter() goldmark.Markdown {
 		goldmark.WithExtensions(
 			extension.GFM,
 			&extensions.PlantUMLExtension{},
+			&extensions.MermaidExtension{},
 			&extensions.ConfluenceCodeBlock{},
 			&extensions.SpoilerExtension{},
 		),

@@ -264,8 +264,48 @@ make generate
 - **GitHub Flavored Markdown** (GFM) — tables, strikethrough, task lists
 - **Fenced code blocks** → Confluence `code` macro with language highlighting
 - **PlantUML** — ` ```plantuml ` blocks → Confluence PlantUML macro
+- **Mermaid** — ` ```mermaid ` blocks → Confluence Mermaid macro
 - **Spoilers** — `<details><summary>` → Confluence `ui-expand` macro
 - **Links** — automatic conversion to Confluence link format
+
+### Mermaid Diagrams
+
+Mermaid diagrams in fenced code blocks are automatically converted to the Confluence Mermaid macro.
+Requires the [Mermaid Chart](https://marketplace.atlassian.com/apps/1224722/mermaid-charts-for-confluence) plugin installed on your Confluence instance.
+
+**Flowchart:**
+
+````markdown
+```mermaid
+graph TD
+    A[Запрос от клиента] --> B{Авторизация}
+    B -->|Успех| C[Обработка запроса]
+    B -->|Ошибка| D[401 Unauthorized]
+    C --> E{Валидация}
+    E -->|OK| F[Сохранение в БД]
+    E -->|Ошибка| G[400 Bad Request]
+    F --> H[200 OK]
+```
+````
+
+**Sequence diagram:**
+
+````markdown
+```mermaid
+sequenceDiagram
+    participant Client as Клиент
+    participant GW as API Gateway
+    participant Svc as Сервис
+    participant DB as PostgreSQL
+
+    Client->>GW: POST /api/v1/orders
+    GW->>Svc: gRPC CreateOrder
+    Svc->>DB: INSERT INTO orders
+    DB-->>Svc: OK
+    Svc-->>GW: OrderResponse
+    GW-->>Client: 200 OK
+```
+````
 
 ## How It Works
 
