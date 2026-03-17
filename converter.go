@@ -30,6 +30,7 @@ func newMarkdownConverter(mermaidCollector *extensions.MermaidCollector) goldmar
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
 			html.WithXHTML(),
+			html.WithUnsafe(),
 		),
 	)
 }
