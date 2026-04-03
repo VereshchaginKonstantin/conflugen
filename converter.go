@@ -44,20 +44,29 @@ var confluenceMacroRe = regexp.MustCompile(
 // unescapeConfluenceMacros восстанавливает Confluence XML-макросы, экранированные goldmark.
 // Goldmark не распознаёт XML namespace-теги (ac:structured-macro) как HTML
 // и экранирует их в &lt;/&gt;. Эта функция возвращает их в исходный вид.
-func unescapeConfluenceMacros(html string) string {
-	// Убираем <p>...</p> обёртку вокруг макросов
-	result := confluenceMacroRe.ReplaceAllStringFunc(html, func(match string) string {
+func unescapeConfluenceMacros(htmlStr string) string {
+	// Шаг 1: восстанавливаем экранированные ac: теги
+	result := confluenceMacroRe.ReplaceAllStringFunc(htmlStr, func(match string) string {
 		match = strings.ReplaceAll(match, "&lt;", "<")
 		match = strings.ReplaceAll(match, "&gt;", ">")
 		match = strings.ReplaceAll(match, "&quot;", "\"")
 		return match
 	})
-	// Убираем <p> обёртку: <p><ac:...>...</ac:...></p> → <ac:...>...</ac:...>
-	pWrapRe := regexp.MustCompile(`<p>\s*(<ac:[^<]*(?:<[^<]*)*</ac:[a-z-]+>)\s*</p>`)
-	result = pWrapRe.ReplaceAllString(result, "$1")
-	// Self-closing: <p><ac:... /></p>
-	pWrapSelfRe := regexp.MustCompile(`<p>\s*(<ac:[a-z-]+[^>]*/\s*>)\s*</p>`)
-	result = pWrapSelfRe.ReplaceAllString(result, "$1")
+
+	// Шаг 2: убираем <p>...</p> обёртку у параграфов, содержащих ac: макросы.
+	// Goldmark может поместить несколько макросов и текст в один <p>,
+	// что ломает Confluence XHTML-парсер.
+	pWithMacroRe := regexp.MustCompile(`(?s)<p>(.*?)</p>`)
+	result = pWithMacroRe.ReplaceAllStringFunc(result, func(match string) string {
+		if strings.Contains(match, "<ac:") {
+			// Убираем обёртку <p>...</p>
+			inner := strings.TrimPrefix(match, "<p>")
+			inner = strings.TrimSuffix(inner, "</p>")
+			return strings.TrimSpace(inner)
+		}
+		return match
+	})
+
 	return result
 }
 
