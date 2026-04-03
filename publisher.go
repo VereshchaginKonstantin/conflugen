@@ -87,7 +87,7 @@ func createPage(
 	created, err := client.CreateContent(page)
 	if err != nil {
 		errStr := err.Error()
-		if strings.Contains(errStr, "already exists") || strings.Contains(errStr, "400") {
+		if strings.Contains(errStr, "already exists") {
 			return "", fmt.Errorf(
 				"страница '%s' уже существует в пространстве %s (но не под родителем %s). "+
 					"Переименуйте файл или удалите дубликат в Confluence",
