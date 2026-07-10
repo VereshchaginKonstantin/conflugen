@@ -1,0 +1,8 @@
+{
+  "name": "conflugen-mermaid-deps",
+  "private": true,
+  "description": "Runtime dependency for conflugen mermaid rendering: beautiful-mermaid (pure-JS, no browser). In CI/locally run `npm install` before conflugen so SVG rendering works.",
+  "dependencies": {
+    "beautiful-mermaid": "^1.1.3"
+  }
+}

@@ -1,0 +1,11 @@
+conflugen
+*.exe
+node_modules/
+package-lock.json
+
+# Локальные прогоны conflugen download: выгруженные страницы Confluence и
+# списки pageId — корпоративный контент, ему не место в репозитории.
+dump/
+dump*/
+pages.txt
+pages*.txt
